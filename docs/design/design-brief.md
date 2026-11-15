@@ -158,7 +158,7 @@ It matches Figma's Layout guide panel. See the screenshots in [references/figma-
 - **Grid rows:** one 32 px row per grid. From left to right:
   - **Drag handle:** shown only while the row is hovered or focused. Dragging it reorders the grids, and Alt+↑/↓ does the same from the keyboard. The top row draws on top.
   - **Grid-type icon:** Columns, Rows or Grid. Clicking it opens that grid's popover.
-  - **Summary dropdown:** the type and its basic numbers, for example `12 columns`, `2000 rows (10px)` or `Grid 10px`. It has a border only. Clicking it also opens the popover.
+  - **Summary dropdown:** the type and its basic numbers, for example `12 columns`, `2000 rows (10px)` or `Grid 10px`. It has a border only. Clicking it opens a type menu (Grid, Columns, Rows), as in Figma (0014 §8).
   - **Eye:** shows or hides the grid.
   - **Minus:** removes the grid.
 - **Selected row:** gets the active secondary background (`#32394d`), and its dropdown border turns primary (`#0c8ce9`).
@@ -170,6 +170,14 @@ It matches Figma's Layout guide panel. See the screenshots in [references/figma-
     - **Grid:** Size, Color.
   - Text inputs use the secondary background (`#383838`). Dropdowns have a border only.
   - Esc or the close button closes the popover and returns focus to the row's type icon.
+
+### 10.2 Rendered section (0015, spec 07)
+
+- **Header:** a disclosure button, `Rendered`, with a muted count once the page has been scanned (`3 grids, 12 flex`), and a Pick button (crosshair icon).
+- **Collapsed by default.** The page is only scanned while the section is open.
+- **Rows:** a tree of containers (0016), like Figma's layers panel: indented 16 px per level under the nearest listed container that holds it, with a chevron on parents. Each 32 px row has a type icon, the label (`div.cards`) with the gap audit in muted text, and an eye. A **Show flex** button adds the flex containers.
+- **Hover or focus a row:** a solid outline and name tag around that element on the page.
+- **Marks:** dashed blue-violet (`#6e56cf`) track outlines and content box, and a name tag at the top-left on the panel's dark grey, with the container's size dimmed beside the name (0017). Gaps are shaded pink (`#e90c7a`, the primary blue's hue mirrored) and padding primary blue (`#0c8ce9`), both with an even 6 px diagonal tile and a value box in the same colour with white text (0016). Track sizes appear only on hover, as a value pill.
 
 Why the panel floats here when UI3 docked its panels: Figma docked them because they covered the canvas. We are layered over someone else's app and can't take space away from it, so the panel floats and collapses to the toolbar instead. This is Figma's "Minimize UI" pattern, used as our default.
 

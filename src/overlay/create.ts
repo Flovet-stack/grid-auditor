@@ -14,6 +14,7 @@ import {
 import { createPanel, PANEL_STYLES } from './panel';
 import { fingerprint, type Position, type Stored, safeStorage, snippet, toInputs } from './persist';
 import { renderBreakpoint, STYLES } from './render';
+import { createRendered, RENDERED_STYLES } from './rendered';
 import {
   isFromEditable,
   matchesPanel,
@@ -213,7 +214,7 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
   }
   const shadow = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
-  style.textContent = STYLES + PANEL_STYLES;
+  style.textContent = STYLES + RENDERED_STYLES + PANEL_STYLES;
   const layer = document.createElement('div');
   layer.className = 'layer';
   layer.setAttribute('aria-hidden', 'true');
@@ -230,9 +231,21 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
     return bp ? state.breakpoints.indexOf(bp) : -1;
   };
 
+  // The rendered grid (0015, spec 07). Its callbacks run later, once `panel` exists.
+  const rendered = createRendered(
+    document,
+    host,
+    {
+      onChange: () => panel.syncRendered(),
+      onPick: (el) => panel.picked(el),
+    },
+    signal,
+  );
+
   const panel = createPanel(
     document,
     {
+      rendered: () => rendered,
       breakpoints: () => state.breakpoints,
       activeIndex: () => activeIndex,
       setGrids(index, grids): readonly GridError[] {
@@ -293,7 +306,7 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
     },
     signal,
   );
-  shadow.append(style, layer, panel.element);
+  shadow.append(style, layer, rendered.element, panel.element);
   document.documentElement.append(host);
 
   const flush = (): void => {
@@ -315,6 +328,7 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
     }
     layer.style.transform = `translate(${-window.scrollX}px, ${-window.scrollY}px)`;
     layer.hidden = !state.visible;
+    rendered.setVisible(state.visible);
   };
   const schedule = (render: boolean): void => {
     if (render) needsRender = true;
@@ -330,6 +344,17 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
     { signal },
   );
   window.addEventListener('scroll', () => schedule(false), { signal, passive: true });
+  // Esc cancels Pick before anything else closes (spec 07). Registered before the other key listeners.
+  window.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key !== 'Escape' || !rendered.isPicking()) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      rendered.cancelPick();
+    },
+    { signal, capture: true },
+  );
   window.addEventListener(
     'keydown',
     (event) => {
@@ -417,6 +442,7 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
       destroyed = true;
       controller.abort();
       observer.disconnect();
+      rendered.destroy();
       if (frame !== 0) cancelAnimationFrame(frame);
       host.remove();
       if (current === overlay) current = undefined;

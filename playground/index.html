@@ -9,12 +9,31 @@
   <body>
     <main class="container">
       <header class="span-12 box">Header: full width</header>
-      <section class="span-8 box">Main: full width, 8 columns on desktop</section>
+      <section class="span-8 box">
+        Main: full width, 8 columns on desktop
+      </section>
       <aside class="span-4 box">Aside: 4 columns from tablet</aside>
       <article class="span-4 box">Card</article>
       <article class="span-4 box">Card</article>
       <article class="span-4 box">Card</article>
     </main>
+    <!-- Spec 07 fixture: open Rendered in the panel to inspect these. -->
+    <section class="rendered-demo" aria-label="Rendered grid fixtures">
+      <div class="cards">
+        <div class="box">Grid: 200px 1fr 2fr</div>
+        <div class="box">Card</div>
+        <div class="box">Card</div>
+      </div>
+      <div class="tags">
+        <span>Tag</span><span>Tag</span><span>Tag</span
+        ><span class="uneven">Uneven gap</span><span>Tag</span>
+      </div>
+      <div class="cards rtl" dir="rtl">
+        <div class="box">RTL grid</div>
+        <div class="box">Card</div>
+        <div class="box">Card</div>
+      </div>
+    </section>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

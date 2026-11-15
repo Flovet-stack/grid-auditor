@@ -49,3 +49,32 @@ body {
     grid-column: span 8;
   }
 }
+
+/* Spec 07 fixtures: a CSS grid, a wrapping flex row with one uneven gap, an RTL grid. */
+.rendered-demo {
+  display: grid;
+  gap: 32px;
+  padding: 0 16px 48px;
+}
+.rendered-demo .cards {
+  display: grid;
+  grid-template-columns: 200px 1fr 2fr;
+  gap: 16px;
+  padding: 16px;
+  background: #f0eefc;
+  border-radius: 8px;
+}
+.rendered-demo .tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.rendered-demo .tags span {
+  padding: 4px 12px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 999px;
+}
+.rendered-demo .tags .uneven {
+  margin-left: 12px;
+}
