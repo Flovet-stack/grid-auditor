@@ -14,7 +14,12 @@ const frames = async (n = 2) => {
 const shadow = () =>
   (document.querySelector('grid-auditor') as HTMLElement).shadowRoot as ShadowRoot;
 const q = <T extends Element = HTMLElement>(sel: string) => shadow().querySelector(sel) as T;
-const field = (key: string) => q<HTMLInputElement>(`[data-key="${key}"]`);
+/** A grid field; opens that grid's popover first, as a user would (0014). */
+const field = (key: string) => {
+  const sel = `[data-key="${key}"]`;
+  if (!q(sel)) q(`[data-key="g${key.match(/^g(\d+)-/)?.[1]}-type"]`)?.click();
+  return q<HTMLInputElement>(sel);
+};
 const cols = () => Array.from(shadow().querySelectorAll<HTMLElement>('.section.col'));
 const stored = () => localStorage.getItem(STORAGE_KEY);
 
@@ -63,8 +68,7 @@ describe('4. survives a reload', () => {
     const o = await reload();
     expect(cols()).toHaveLength(16);
     o.openPanel();
-    expect(q('.badge').textContent).toBe('Desktop · 16 cols · 24 px gutter · Edited');
-    expect(q('[data-key="reset"]').hidden).toBe(false);
+    expect(q('[data-key="g0-summary"] span').textContent).toBe('16 columns');
   });
 });
 
@@ -97,21 +101,6 @@ describe('5. code changed since the edits', () => {
     expect(stored()).toBeNull();
     expect(cols()).toHaveLength(10);
     expect(q('.notice')).toBeNull();
-  });
-});
-
-describe('6. reset to code', () => {
-  it('clears the edits, shows the code grid and hides itself', async () => {
-    overlay = createGridOverlay();
-    overlay.openPanel();
-    commit('g0-count', '16');
-    await frames();
-    await userEvent.click(q('[data-key="reset"]'));
-    await frames();
-    expect(cols()).toHaveLength(12);
-    expect(stored()).toBeNull();
-    expect(q('[data-key="reset"]').hidden).toBe(true);
-    expect(shadow().activeElement?.id).toBe('ga-layout');
   });
 });
 

@@ -20,7 +20,12 @@ const host = () => document.querySelector('grid-auditor') as HTMLElement;
 const shadow = () => host().shadowRoot as ShadowRoot;
 const panelEl = () => shadow().querySelector('.panel') as HTMLElement;
 const q = <T extends Element = HTMLElement>(sel: string) => shadow().querySelector(sel) as T;
-const field = (key: string) => q<HTMLInputElement>(`[data-key="${key}"]`);
+/** A grid field; opens that grid's popover first, as a user would (0014). */
+const field = (key: string) => {
+  const sel = `[data-key="${key}"]`;
+  if (!q(sel)) q(`[data-key="g${key.match(/^g(\d+)-/)?.[1]}-type"]`)?.click();
+  return q<HTMLInputElement>(sel);
+};
 const cols = () => Array.from(shadow().querySelectorAll<HTMLElement>('.section.col'));
 const rows = () => Array.from(shadow().querySelectorAll<HTMLElement>('.section.row'));
 
@@ -94,12 +99,18 @@ describe('1. open and close', () => {
     expect(overlay.isPanelOpen()).toBe(false);
   });
 
-  it('Esc inside the panel and the close button both close it', async () => {
+  it('Esc closes the popover first, then the panel; the close button closes it too', async () => {
     overlay = createGridOverlay();
     overlay.openPanel();
-    field('g0-count').dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
-    );
+    const esc = (t: EventTarget) =>
+      t.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+      );
+    esc(field('g0-count'));
+    expect(q('.popover')).toBeNull();
+    expect(overlay.isPanelOpen()).toBe(true);
+    expect(shadow().activeElement).toBe(q('[data-key="g0-type"]'));
+    esc(q('[data-key="g0-type"]'));
     expect(overlay.isPanelOpen()).toBe(false);
     overlay.openPanel();
     await userEvent.click(q('button[aria-label^="Close panel"]'));
@@ -122,10 +133,10 @@ describe('2. breakpoint badge', () => {
   it('shows the active breakpoint and follows resizes', async () => {
     overlay = createGridOverlay();
     overlay.openPanel();
-    expect(q('.badge').textContent).toBe('Desktop · 12 cols · 24 px gutter');
+    expect(q('.badge').textContent).toBe('Desktop');
     await page.viewport(800, 900);
     await frames();
-    expect(q('.badge').textContent).toBe('Tablet · 8 cols · 24 px gutter');
+    expect(q('.badge').textContent).toBe('Tablet');
   });
 });
 
@@ -136,7 +147,6 @@ describe('3. live edit', () => {
     commit('g0-count', '16');
     await frames();
     expect(cols()).toHaveLength(16);
-    expect(q('.badge').textContent).toBe('Desktop · 16 cols · 24 px gutter · Edited');
     const r = normalizeGrid({ pattern: 'COLUMNS', count: 16, offset: 80, gutterSize: 24 });
     if (!r.ok) throw new Error('bad grid');
     const width = document.documentElement.clientWidth;
@@ -172,7 +182,6 @@ describe('3. live edit', () => {
       }),
     );
     expect(input.value).toBe('15');
-    expect(q('.badge').textContent).toBe('Desktop · 12 cols · 15 px gutter · Edited');
     // Focus survives the in-place update.
     expect(shadow().activeElement).toBe(input);
   });
@@ -205,7 +214,7 @@ describe('5. add, remove and visibility', () => {
     overlay = createGridOverlay();
     overlay.openPanel();
     await userEvent.click(q('[data-key="add"]'));
-    const pattern = q<HTMLSelectElement>('[data-key="g1-pattern"]');
+    const pattern = field('g1-pattern') as unknown as HTMLSelectElement;
     pattern.value = 'ROWS';
     pattern.dispatchEvent(new Event('change'));
     await frames();
@@ -324,7 +333,7 @@ describe('breakpoint switch with a field focused', () => {
     const title = q('.title');
     expect(shadow().activeElement).toBe(title);
     expect(field('g0-count').value).toBe('8');
-    expect(getComputedStyle(title).outlineColor).toBe('rgb(91, 140, 255)');
+    expect(getComputedStyle(title).outlineColor).toBe('rgb(12, 140, 233)');
   });
 });
 
@@ -353,5 +362,187 @@ describe('9. dragging', () => {
     const p2 = panelEl().getBoundingClientRect();
     expect(p2.left).toBe(0);
     expect(p2.top).toBe(0);
+  });
+});
+
+const summaries = () =>
+  Array.from(shadow().querySelectorAll('.summary span')).map((s) => s.textContent);
+const popLabels = () =>
+  Array.from(shadow().querySelectorAll('.popover .prow > span:first-child')).map(
+    (s) => s.textContent,
+  );
+
+describe('10. compact rows and popover (0014)', () => {
+  it('shows one summary row per grid and opens the fields only on demand', async () => {
+    overlay = createGridOverlay({
+      extendDefaults: false,
+      breakpoints: [
+        {
+          name: 'Desktop',
+          minWidth: 0,
+          grids: [
+            { pattern: 'COLUMNS', count: 12 },
+            { pattern: 'ROWS', alignment: 'MIN', count: 2000, sectionSize: 10, gutterSize: 0 },
+            { pattern: 'GRID', sectionSize: 10 },
+          ],
+        },
+      ],
+    });
+    overlay.openPanel();
+    expect(summaries()).toEqual(['12 columns', '2000 rows (10px)', 'Grid 10px']);
+    for (const row of shadow().querySelectorAll<HTMLElement>('.grid')) {
+      expect(row.getBoundingClientRect().height).toBe(32);
+    }
+    expect(q('.popover')).toBeNull();
+    expect(q('[data-key="g0-count"]')).toBeNull();
+
+    await userEvent.click(q('[data-key="g1-type"]'));
+    expect(q('.grid[data-index="1"]').classList.contains('selected')).toBe(true);
+    expect(q('[data-key="g1-type"]').getAttribute('aria-expanded')).toBe('true');
+    expect(popLabels()).toEqual(['Count', 'Color', 'Type', 'Height', 'Offset', 'Gutter']);
+    expect(shadow().activeElement).toBe(q('[data-key="g1-count"]'));
+    // The popover sits beside the panel, not over it.
+    expect(q('.popover').getBoundingClientRect().right).toBeLessThanOrEqual(
+      panelEl().getBoundingClientRect().left,
+    );
+
+    await userEvent.click(q('[data-key="g2-type"]'));
+    expect(popLabels()).toEqual(['Size', 'Color']);
+    await userEvent.click(q('[data-key="popover-close"]'));
+    expect(q('.popover')).toBeNull();
+  });
+
+  it('a stretched grid shows Width as Auto, disabled', () => {
+    overlay = createGridOverlay();
+    overlay.openPanel();
+    const width = field('g0-sectionSize');
+    expect(width.disabled).toBe(true);
+    expect(width.value).toBe('Auto');
+  });
+
+  it('the summary follows edits', async () => {
+    overlay = createGridOverlay();
+    overlay.openPanel();
+    commit('g0-count', '7');
+    await frames();
+    expect(q('[data-key="g0-summary"] span').textContent).toBe('7 columns');
+  });
+
+  it('reorders with Alt+arrows on the handle, and the first grid draws on top', async () => {
+    overlay = createGridOverlay({
+      extendDefaults: false,
+      breakpoints: [
+        {
+          name: 'Desktop',
+          minWidth: 0,
+          grids: [
+            { pattern: 'COLUMNS', count: 12 },
+            { pattern: 'ROWS', count: 3, gutterSize: 10 },
+          ],
+        },
+      ],
+    });
+    overlay.openPanel();
+    const layer = () => Array.from(q('.layer').children).map((c) => c.classList[1]);
+    expect(layer().at(-1)).toBe('col');
+    const grip = q('[data-key="g0-grip"]');
+    grip.focus();
+    grip.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'ArrowDown',
+        altKey: true,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await frames();
+    expect(summaries()).toEqual(['3 rows', '12 columns']);
+    expect(layer().at(-1)).toBe('row');
+    expect(shadow().activeElement).toBe(q('[data-key="g1-grip"]'));
+  });
+
+  it('reorders by dragging the handle', async () => {
+    overlay = createGridOverlay({
+      extendDefaults: false,
+      breakpoints: [
+        {
+          name: 'Desktop',
+          minWidth: 0,
+          grids: [
+            { pattern: 'COLUMNS', count: 12 },
+            { pattern: 'ROWS', count: 3 },
+            { pattern: 'GRID', sectionSize: 8 },
+          ],
+        },
+      ],
+    });
+    overlay.openPanel();
+    const grip = q('[data-key="g0-grip"]');
+    const last = q('.grid[data-index="2"]').getBoundingClientRect();
+    const r = grip.getBoundingClientRect();
+    const opts = { bubbles: true, composed: true, button: 0, pointerId: 1 };
+    grip.dispatchEvent(
+      new PointerEvent('pointerdown', { ...opts, clientX: r.left, clientY: r.top }),
+    );
+    grip.dispatchEvent(
+      new PointerEvent('pointermove', { ...opts, clientX: r.left, clientY: last.bottom - 2 }),
+    );
+    expect(q('.drop-line')).not.toBeNull();
+    grip.dispatchEvent(new PointerEvent('pointerup', opts));
+    await frames();
+    expect(summaries()).toEqual(['3 rows', 'Grid 8px', '12 columns']);
+    expect(q('.drop-line')).toBeNull();
+  });
+
+  it('uses the Figma UI colours and font from 0014', () => {
+    overlay = createGridOverlay();
+    overlay.openPanel();
+    const cs = getComputedStyle(panelEl());
+    expect(cs.backgroundColor).toBe('rgb(44, 44, 44)');
+    expect(cs.borderTopColor).toBe('rgb(68, 68, 68)');
+    expect(cs.fontFamily.startsWith('Inter')).toBe(true);
+    field('g0-gutterSize');
+    expect(getComputedStyle(q('.popover .unit:not(.outline)')).backgroundColor).toBe(
+      'rgb(56, 56, 56)',
+    );
+  });
+
+  it('has no axe violations with the popover open', async () => {
+    overlay = createGridOverlay();
+    overlay.openPanel();
+    field('g0-count');
+    const result = await axe.run(host(), { resultTypes: ['violations'] });
+    expect(result.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+  });
+});
+
+describe('11. type menu and no Reset to code (0014 §8)', () => {
+  it('the summary opens Grid, Columns, Rows and switches the type', async () => {
+    overlay = createGridOverlay();
+    overlay.openPanel();
+    expect(q('[data-key="reset"]')).toBeNull();
+    const summary = q('[data-key="g0-summary"]');
+    await userEvent.click(summary);
+    expect(q('.popover')).toBeNull();
+    expect(summary.getAttribute('aria-expanded')).toBe('true');
+    const opts = Array.from(shadow().querySelectorAll('.menu [role="option"]'));
+    expect(opts.map((o) => o.textContent)).toEqual(['Grid', 'Columns', 'Rows']);
+    expect(shadow().activeElement).toBe(q('[data-key="g0-type-columns"]'));
+    await userEvent.click(q('[data-key="g0-type-rows"]'));
+    await frames();
+    expect(q('.menu')).toBeNull();
+    expect(q('[data-key="g0-summary"] span').textContent).toMatch(/rows/);
+  });
+
+  it('Esc closes the menu before the panel', async () => {
+    overlay = createGridOverlay();
+    overlay.openPanel();
+    await userEvent.click(q('[data-key="g0-summary"]'));
+    q('[data-key="g0-type-grid"]').dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }),
+    );
+    expect(q('.menu')).toBeNull();
+    expect(overlay.isPanelOpen()).toBe(true);
+    expect(shadow().activeElement).toBe(q('[data-key="g0-summary"]'));
   });
 });

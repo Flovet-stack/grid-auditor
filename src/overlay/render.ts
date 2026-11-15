@@ -32,7 +32,8 @@ export function renderBreakpoint(
   layer.style.width = `${box.width}px`;
   layer.style.height = `${box.height}px`;
 
-  for (const grid of breakpoint?.grids ?? []) {
+  // The first grid draws on top, like the top row of Figma's Layout guide list (0014).
+  for (const grid of [...(breakpoint?.grids ?? [])].reverse()) {
     if (!grid.visible) continue;
 
     if (grid.pattern === 'GRID') {

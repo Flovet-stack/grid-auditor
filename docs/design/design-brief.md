@@ -2,7 +2,7 @@
 
 - **Status:** Approved (decision [0005](../decisions/0005-figma-native-interaction-and-visual-language.md), 2026-11-11).
 - **Written:** 2026-11-11 by the product team (roles: Product, UX, UI, Copy, Frontend, Tech Lead)
-- **Decisions:** [0005 Figma-native interaction and visual language](../decisions/0005-figma-native-interaction-and-visual-language.md)
+- **Decisions:** [0005 Figma-native interaction and visual language](../decisions/0005-figma-native-interaction-and-visual-language.md) · [0014 Match Figma's Layout guide panel](../decisions/0014-figma-layout-guide-panel.md) (overrides parts of §5, §6 and §9–11)
 
 This brief describes how Grid Auditor should look, feel and behave, and why. `PROJECT_BRIEF.md` stays the source of truth for scope. Decision 0005 holds the research. This file shows how the pieces fit.
 
@@ -38,17 +38,24 @@ Our users spend their day in Figma. Every gesture they already know there (Alt t
 ## 5. Scope and constraints
 
 - This brief covers every visible part of the brief's features #1–#21.
-- **No web fonts, images or icon fonts are loaded into the host.** Everything uses the system font stack and inline SVG.
+- **No web fonts, images or icon fonts are loaded into the host.** The font stack starts with Inter, used only if it is already installed, then falls back to system fonts (0014). Icons are inline SVG.
 - Everything renders in one shadow root (decision 0002). No host CSS can reach it, and none of ours can leak out.
-- References are for inspiration. We never copy Figma's or GuideFrame's logos, names, icons, illustrations or exact brand colours, and we never claim to be affiliated with Figma.
+- References are for inspiration. We never copy Figma's or GuideFrame's logos, names, icon artwork or illustrations, and we never claim to be affiliated with Figma. The control panel deliberately matches the layout and dark UI colours of Figma's Layout guide panel (0014). Its icons are our own drawings, made in Figma's style.
 
 ## 6. Design principles
 
-1. **Figma's rules, not Figma's look.** Gestures, shortcuts, units and default colours for marks follow Figma's documented behaviour. The chrome is our own: quiet, neutral and clearly a separate tool.
+1. **Figma's rules, and Figma's look where users edit the same thing.** Gestures, shortcuts, units and default colours for marks follow Figma's documented behaviour. The control panel copies the layout and colours of Figma's Layout guide panel, so moving between the two takes no thought (0014). Other chrome stays quiet and neutral.
 2. **The page is the hero.** Figma's own UI3 principle: keep users in flow and put their work at the centre. The chrome is compact, collapses to a toolbar, and stays away from content.
 3. **Marks say what, colour says which.** Fill vs outline vs dashed tells expected, rendered and guide apart. Colour helps but is never the only cue.
 4. **Show state, never hide it in tooltips.** UI3 dropped "training wheels" such as needing a tooltip to read state. Every toggle shows its state and its shortcut inline.
 5. **One keystroke out.** Every mode can be left with Esc, and the whole overlay with its toggle.
+6. **Progressive disclosure, always.** Show the minimum needed to recognise and act on something, and reveal detail on demand. Example: a grid is a single summary row, and its fields open in a popover only when asked for.
+7. **The spectrum of explicitness, always.** Each control sits as far toward implicit as the task allows. Moving along the spectrum:
+   - a recognisable icon and summary
+   - a hover affordance, such as the drag handle
+   - an explicit labelled field
+
+   Controls get more explicit only when the user needs precision. Every feature and spec is checked against principles 6 and 7.
 
 ## 7. Personality and voice
 
@@ -100,12 +107,23 @@ All mark colours are CSS custom properties, and users can set them per grid in t
 
 ### 9.2 Colour: chrome
 
-- **Neutral and theme-aware.** Dark chrome on any page by default (like DevTools and GuideFrame), and a light theme the user can choose. One accent is used for active toggles and focus. It is not Figma's exact purple or blue.
+Figma's dark UI values (0014):
+
+| Token                   | Value     | Used for                                                                    |
+| ----------------------- | --------- | --------------------------------------------------------------------------- |
+| Background              | `#2c2c2c` | Panel and popover surfaces                                                  |
+| Border and separators   | `#444`    | Panel edge, section separators, dropdown borders                            |
+| Primary action          | `#0c8ce9` | Primary buttons, focus rings, the selected row's dropdown border, switch on |
+| Secondary action        | `#383838` | Text input background, secondary buttons                                    |
+| Active secondary action | `#32394d` | Selected grid row, pressed secondary buttons                                |
+
+- Text is white. Muted labels are white at about 70%, which still meets 4.5:1 on `#2c2c2c`.
+- A light theme the user can choose comes later.
 - Chrome surfaces get a 1 px border and a soft shadow so they stand out on any host background.
 
 ### 9.3 Typography
 
-- System UI stack (`system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`) for labels, and `ui-monospace` with tabular numbers for every value.
+- Font stack (0014): `Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, SFProLocalRange`. Nothing is downloaded. Values use the same stack with tabular numbers, as Figma does.
 - Labels: 11–12 px. Values: 11 px mono. Panel title: 12 px semibold. Measurement pills: 11 px mono, bold.
 - Lesson from UI3: users said its small text was hard to read. We keep 11 px as the minimum, and the panel has a 125% scale setting.
 
@@ -117,7 +135,7 @@ All mark colours are CSS custom properties, and users can set them per grid in t
 
 ### 9.5 Icons
 
-Inline SVG at 16 px, with a 1.5 px stroke, drawn by us. No icon font and no external set, so nothing loads into the host. Icons sit next to labels and never replace them (UI3: visible labels carry the context).
+Inline SVG at 16 px, with a 1 px stroke, drawn by us in Figma's style (0014). Figma's icon set isn't published. The animated library AniKansou uses (lucide-animated) needs React and Motion at runtime, so we don't use it. No icon font and no external set, so nothing loads into the host. Icons sit next to labels and never replace them (UI3: visible labels carry the context).
 
 ### 9.6 Motion
 
@@ -130,14 +148,35 @@ Close to none. 120 ms opacity fades when the panel opens or closes, with no moti
 | **Rulers**           | Top and left edges, 20 px, with a corner square that shows the units             | Ticks in document space that follow the scroll. When an element is selected, its range is highlighted on the ruler (Figma: rulers highlight the selected frame's coordinates)                                                                                                                                    |
 | **Toolbar**          | Floating at the bottom centre (UI3 puts toolbars at the bottom in every product) | One pill: Grid · Rulers · Guides · Inspector · Lock, each with its state and shortcut on hover, plus a button that opens the panel. Can be dragged to the corners                                                                                                                                                |
 | **Control panel**    | Floating at the top right, 260 px wide, can be moved and collapsed               | Sections in the same order as Figma's right sidebar: **Layout guides** (one row per grid: show/hide eye, type, count, gutter, margin/offset, colour, opacity) → **Compare** (show expected / rendered / both, tolerance) → **Snapping** (elements, columns, guides) → **Guides** (clear, export) → **Shortcuts** |
-| **Breakpoint badge** | Top of the panel                                                                 | Shows the active breakpoint and grid, for example `Tablet · 8 cols · 16 px gutter` (GuideFrame does the same)                                                                                                                                                                                                    |
+| **Breakpoint badge** | Top of the panel                                                                 | Shows only the active breakpoint, for example `Tablet`; grid details are in the rows (0014 §8)                                                                                                                                                                                                                   |
+
+### 10.1 Layout guide section (0014)
+
+It matches Figma's Layout guide panel. See the screenshots in [references/figma-layout-guide-panel.md](references/figma-layout-guide-panel.md).
+
+- **Section header:** the title "Layout guide" and a + button that adds a grid.
+- **Grid rows:** one 32 px row per grid. From left to right:
+  - **Drag handle:** shown only while the row is hovered or focused. Dragging it reorders the grids, and Alt+↑/↓ does the same from the keyboard. The top row draws on top.
+  - **Grid-type icon:** Columns, Rows or Grid. Clicking it opens that grid's popover.
+  - **Summary dropdown:** the type and its basic numbers, for example `12 columns`, `2000 rows (10px)` or `Grid 10px`. It has a border only. Clicking it also opens the popover.
+  - **Eye:** shows or hides the grid.
+  - **Minus:** removes the grid.
+- **Selected row:** gets the active secondary background (`#32394d`), and its dropdown border turns primary (`#0c8ce9`).
+- **Popover:**
+  - It sits beside the panel, aligned to the row.
+  - Header: a pattern dropdown (Columns, Rows or Grid) and a close button, with a separator below.
+  - Then one field per row, with the label on the left and the input on the right:
+    - **Columns and Rows:** Count, Color (swatch, hex and opacity %), Type, Width or Height (shows "Auto", disabled, while Type is Stretch), Margin (Offset when not Stretch, hidden when Center), Gutter.
+    - **Grid:** Size, Color.
+  - Text inputs use the secondary background (`#383838`). Dropdowns have a border only.
+  - Esc or the close button closes the popover and returns focus to the row's type icon.
 
 Why the panel floats here when UI3 docked its panels: Figma docked them because they covered the canvas. We are layered over someone else's app and can't take space away from it, so the panel floats and collapses to the toolbar instead. This is Figma's "Minimize UI" pattern, used as our default.
 
 ## 11. Components: direction
 
 - **Toggle row:** label, the shortcut in a muted keycap, and a switch. State is visible without hovering.
-- **Number field:** a mono value with its unit, and Figma-style scrubbing (drag on the label to change the value). Arrow keys step by 1, and Shift+arrow by 10.
+- **Number field:** label on the left, value on the right on a `#383838` fill, with its unit, and Figma-style scrubbing (drag on the label to change the value). Arrow keys step by 1, and Shift+arrow by 10.
 - **Value pill:** used for measurements, guide positions and deviations: mono, bold, with a px unit.
 - **Keycap:** shows each shortcut with the right modifier for the platform (⌘ on Mac, Ctrl elsewhere).
 
