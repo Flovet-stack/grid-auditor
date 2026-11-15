@@ -69,7 +69,7 @@ The **Rendered** section, below Layout guide, shows the grid the page actually l
 - **Grid containers:** each real column and row track as a dashed outline, from the browser's own computed sizes.
 - **Gaps:** shaded pink, measured between neighbouring children, so wrapped flex rows work too. Each shows its size in a small pink box.
 - **Padding:** shaded in blue, with its size in a small blue box. Sides of 0 aren't drawn.
-- **Content box:** a dashed outline, with the container's name (`div.cards`) as a tag.
+- **Content box:** a dashed outline, with a dark tag showing the container's name and size (`div.cards 977 × 152`).
 - **Gap audit:** each row reads, for example, `gaps 24 ×5`, or `gaps 16 ×3, 24 ×1 · inconsistent` when the spacing isn't even.
 - **Track sizes:** hover a track to see its number and size, for example `2 · 240 px`.
 - **Pick:** the target button lets you click a container on the page instead. While picking, the page doesn't receive that click; at all other times the overlay never swallows a page event. Esc cancels.

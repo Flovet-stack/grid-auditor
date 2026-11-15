@@ -158,10 +158,13 @@ describe('9. eyes', () => {
     await open();
     await showRow('div.cards');
     await showRow('div.centered');
-    expect(qa('.rmarks .rtag').map((t) => t.textContent)).toEqual(['div.cards', 'div.centered']);
+    expect(qa('.rmarks .rtag .rname').map((t) => t.textContent)).toEqual([
+      'div.cards',
+      'div.centered',
+    ]);
     expect(eyeFor('div.cards').getAttribute('aria-pressed')).toBe('true');
     await showRow('div.cards');
-    expect(qa('.rmarks .rtag').map((t) => t.textContent)).toEqual(['div.centered']);
+    expect(qa('.rmarks .rtag .rname').map((t) => t.textContent)).toEqual(['div.centered']);
   });
 
   it('Shift+G hides rendered marks with the expected grid', async () => {
@@ -213,7 +216,7 @@ describe('11. pick', () => {
     expect(q('[data-key="pick"]').getAttribute('aria-pressed')).toBe('true');
     expect(q('.pick').hidden).toBe(false);
     pointer('pointermove', at(card));
-    expect(q('.rhl .rtag').textContent).toBe('div.centered');
+    expect(q('.rhl .rtag .rname').textContent).toBe('div.centered');
     for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'])
       pointer(type, at(card));
     await frames();
@@ -369,6 +372,20 @@ describe('15. marks (0016)', () => {
     expect(new Set(gapVals.map((v) => v.textContent))).toEqual(new Set(['16']));
     expect(getComputedStyle(gapVals[0] as HTMLElement).backgroundColor).toBe('rgb(233, 12, 122)');
     expect(getComputedStyle(gapVals[0] as HTMLElement).color).toBe('rgb(255, 255, 255)');
+    expect(getComputedStyle(gapVals[0] as HTMLElement).borderRadius).toBe('2px');
+    expect(getComputedStyle(padVals[0] as HTMLElement).borderRadius).toBe('2px');
+  });
+
+  it('name tags sit on the panel grey with the border-box size dimmed beside the name (0017)', async () => {
+    await open();
+    await showRow('div.cards');
+    const tagEl = q('.rmarks .rtag');
+    expect(getComputedStyle(tagEl).backgroundColor).toBe('rgb(44, 44, 44)');
+    const r = (fixture.querySelector('.cards') as Element).getBoundingClientRect();
+    const dim = q('.rmarks .rtag .rdim');
+    const { snapValue } = await import('../../src/overlay/containers');
+    expect(dim.textContent).toBe(`${snapValue(r.width)} × ${snapValue(r.height)}`);
+    expect(Number(getComputedStyle(dim).opacity)).toBeLessThan(1);
   });
 });
 

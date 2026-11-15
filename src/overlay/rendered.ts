@@ -50,8 +50,11 @@ export const RENDERED_STYLES: string = `
 .rval.pad { background: var(--ga-pad); }
 .rout { border: 1px solid var(--ga-rendered); }
 .rtag, .rpill { position: absolute; white-space: nowrap; padding: 0 4px; border-radius: 3px;
-  background: var(--ga-rendered); color: #fff; font: 600 10px/16px ui-monospace, SFMono-Regular, Menlo,
-  monospace; font-variant-numeric: tabular-nums; }
+  color: #fff; font: 600 10px/16px ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums; }
+.rpill { background: var(--ga-rendered); }
+.rtag { background: #2c2c2c; }
+.rtag .rdim { margin-left: 6px; font-weight: 400; opacity: 0.6; }
 .pick { position: fixed; inset: 0; pointer-events: auto; cursor: crosshair; background: transparent; }
 `;
 
@@ -174,9 +177,16 @@ export function createRendered(
     v.style.top = `${r.top + r.height / 2 - (origin?.top ?? 0)}px`;
     return v;
   };
+  /** The container's name on the panel's dark grey, with its border-box size dimmed beside it (0017). */
   const tag = (text: string, border: Rect): HTMLElement => {
     const t = el('rtag');
-    t.textContent = text;
+    const name = doc.createElement('span');
+    name.className = 'rname';
+    name.textContent = text;
+    const dim = doc.createElement('span');
+    dim.className = 'rdim';
+    dim.textContent = `${snapValue(border.width)} × ${snapValue(border.height)}`;
+    t.append(name, dim);
     t.style.left = `${border.left}px`;
     t.style.top = `${border.top >= 16 ? border.top - 16 : border.top}px`;
     return t;

@@ -10,7 +10,7 @@ A developer sees the grid the page actually laid out: a container's real grid tr
 
 ## Decisions
 
-Implements 0015, 0016 and the container overlay part of 0011, which 0015 updates. 0016 (marks and tree) changes the gap colour, adds padding and value boxes, and makes the list a tree; where this spec and 0016 differ, 0016 wins. Follows 0005 (rendered style, never colour alone), 0007 (page space), 0014 (panel look, progressive disclosure, spectrum of explicitness) and 0006 (rounding of displayed values).
+Implements 0015, 0016, 0017 and the container overlay part of 0011, which 0015 updates. 0016 (marks and tree) changes the gap colour, adds padding and value boxes, and makes the list a tree; where this spec and 0016 differ, 0016 wins. Follows 0005 (rendered style, never colour alone), 0007 (page space), 0014 (panel look, progressive disclosure, spectrum of explicitness) and 0006 (rounding of displayed values).
 
 Two details 0015 left open were approved by Flovet on 2026-11-15, in chat: Shift+G hides rendered marks along with the expected grid, and transformed containers draw only gaps and the content box (see Drawing and Edge cases).
 
@@ -52,7 +52,7 @@ Two details 0015 left open were approved by Flovet on 2026-11-15, in chat: Shift
   - each gap and padding side shows its size in a small box of its colour, with white text (0016)
   - the content box is a dashed outline
   - nothing is filled solid, so the drawing stays distinct from the expected grid in grayscale
-- [ ] **Tag:** each shown container gets its label as a small tag at the top-left of its border box, inside the shadow root.
+- [ ] **Tag:** each shown container gets its label as a small tag at the top-left of its border box, inside the shadow root. The tag is on the panel's dark grey, with the border-box size (`977 × 152`) dimmed beside the name (0017).
 - [ ] **Track size on hover:** hovering a track shows `2 · 240 px` (track number, then size) in a value pill. The marks themselves keep `pointer-events: none`. Hit-testing uses the pointer position against the computed track rects, so the page still receives every pointer event.
 - [ ] **Staying in sync:** marks redraw on scroll and resize (reusing the renderer's frame scheduling), and when a `ResizeObserver` or `MutationObserver` on a **shown** container fires.
 - [ ] **Removed containers:** if a shown container leaves the DOM, its marks and its row are removed. Nothing throws.
