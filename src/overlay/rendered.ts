@@ -175,6 +175,8 @@ export function createRendered(
   let inspecting = false;
   /** The container under the pointer while inspecting. */
   let inspectTarget: Element | undefined;
+  /** Where the pointer last moved over the capture layer, for hit-testing again on scroll. */
+  let lastPointer: { x: number; y: number } | undefined;
   let highlighted: Element | undefined;
   let pickTarget: Element | undefined;
   const shown = new Set<Element>();
@@ -364,7 +366,24 @@ export function createRendered(
     request();
   };
 
-  view.addEventListener('scroll', request, { signal, capture: true, passive: true });
+  // Scrolling moves the page under a still pointer: hit-test again for Pick and the inspector
+  // (spec 08), and hide the track pill, which sits where the pointer last moved.
+  view.addEventListener(
+    'scroll',
+    () => {
+      pill.hidden = true;
+      if (lastPointer && (inspecting || picking)) {
+        const next = containerAt(underPointer(lastPointer.x, lastPointer.y), host);
+        if (inspecting) setInspectTarget(next);
+        else if (next !== pickTarget) {
+          pickTarget = next;
+          drawHighlight();
+        }
+      }
+      request();
+    },
+    { signal, capture: true, passive: true },
+  );
   view.addEventListener('resize', request, { signal });
 
   // ----- track-size hover: hit-test only; the page still gets every pointer event -----
@@ -401,6 +420,7 @@ export function createRendered(
   capture.addEventListener(
     'pointermove',
     (e) => {
+      lastPointer = { x: e.clientX, y: e.clientY };
       const next = containerAt(underPointer(e.clientX, e.clientY), host);
       if (inspecting) {
         setInspectTarget(next);
@@ -417,6 +437,7 @@ export function createRendered(
   capture.addEventListener(
     'pointerleave',
     () => {
+      lastPointer = undefined;
       if (inspecting) setInspectTarget(undefined);
     },
     { signal },

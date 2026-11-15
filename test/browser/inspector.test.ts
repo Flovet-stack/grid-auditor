@@ -190,6 +190,25 @@ describe('4. hover', () => {
     expect(qa('.rmarks .rgroup')).toHaveLength(0);
   });
 
+  it('scrolling under a still pointer switches to the container now under it', async () => {
+    const spacer = document.createElement('div');
+    spacer.style.height = '2000px';
+    fixture.append(spacer);
+    overlay = createGridOverlay();
+    shiftM();
+    const cell = fixture.querySelector('.cards > div') as Element;
+    const xy = at(cell);
+    pointer('pointermove', xy);
+    await frames();
+    expect(tagNames()).toEqual(['div.cards']);
+    const tags = (fixture.querySelector('.tags > span') as Element).getBoundingClientRect();
+    window.scrollBy(0, tags.top + 5 - xy.clientY);
+    window.dispatchEvent(new Event('scroll'));
+    await frames();
+    expect(tagNames()).toEqual(['div.tags']);
+    window.scrollTo(0, 0);
+  });
+
   it('leaving the capture layer (over the panel) clears the marks', async () => {
     overlay = createGridOverlay();
     shiftM();
