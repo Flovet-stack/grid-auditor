@@ -113,6 +113,8 @@ References are for inspiration only: never copy their logos, names, icons, illus
 
 Product-wide decisions only. Every decision, with its research, is logged in `docs/decisions/`.
 
+- 2026-11-15: The first geometry inspector (#17) is Shift+M: it pauses page clicks and draws the rendered grid of the hovered container only, with a pill that says Esc exits. Eye state in the Rendered section is kept, and the section itself always stays. New option `shortcuts.inspect` (0018).
+
 - 2026-11-15: Grid features come before the geometry inspector. The rendered grid overlay (#3) is built first: containers are chosen from a panel list or a Pick button, gaps are measured between children, and a gap audit is shown (0015). The baseline grid moves to Nice to have until user interviews show demand.
 - 2026-11-15: The control panel matches Figma's Layout guide section and dark UI; there is no Reset to code button (0014).
 - 2026-11-11: The control panel's grid settings come first, so users can enter and adjust grids on the page; then persisting panel edits, then 0011's features (0012).
