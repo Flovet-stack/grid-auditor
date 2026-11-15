@@ -40,3 +40,13 @@ export function matchesPanel(event: KeyboardEvent, shortcut: PanelShortcut): boo
   const other = isMac() ? event.ctrlKey : event.metaKey;
   return mod && !other && event.shiftKey && !event.altKey;
 }
+
+export type InspectShortcut = 'Shift+M' | false;
+
+/** Whether `event` is the geometry inspector shortcut, Shift+M (0018). */
+export function matchesInspect(event: KeyboardEvent, shortcut: InspectShortcut): boolean {
+  if (shortcut === false || event.code !== 'KeyM' || event.repeat || event.isComposing) {
+    return false;
+  }
+  return event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey;
+}

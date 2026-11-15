@@ -76,6 +76,14 @@ The **Rendered** section, below Layout guide, shows the grid the page actually l
 
 Shift+G hides these marks along with the expected grid. Nothing here is saved across reloads yet, and nothing is compared with the expected grid yet.
 
+### Inspector
+
+Press **Shift+M** to inspect without opening the panel. Move the pointer over the page: only the grid or flex container under it is drawn, with its tracks, gaps, padding, values and size. A pill at the bottom says the inspector is on. While it's on, page clicks are paused (the wheel still scrolls). Press **Esc** or **Shift+M** to exit.
+
+The inspector doesn't change which containers you turned on in the Rendered section. They're hidden while you inspect and come back when you exit.
+
+- `shortcuts: { inspect: false }` turns the shortcut off.
+
 ## Development
 
 Requires Node 24 and pnpm 11.

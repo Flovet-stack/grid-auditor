@@ -179,6 +179,13 @@ It matches Figma's Layout guide panel. See the screenshots in [references/figma-
 - **Hover or focus a row:** a solid outline and name tag around that element on the page.
 - **Marks:** dashed blue-violet (`#6e56cf`) track outlines and content box, and a name tag at the top-left on the panel's dark grey, with the container's size dimmed beside the name (0017). Gaps are shaded pink (`#e90c7a`, the primary blue's hue mirrored) and padding primary blue (`#0c8ce9`), both with an even 6 px diagonal tile and a value box in the same colour with white text (0016). Track sizes appear only on hover, as a value pill.
 
+### 10.3 Inspector (0018, spec 08)
+
+- **Shift+M** toggles it; Esc exits. Only the container under the pointer is drawn, with the same marks as 10.2.
+- **Pill:** bottom centre, 16 px up, on the panel's dark grey with white text: `Geometry inspector on · Page interactions paused · Press Esc to exit`, with `Esc` as a keycap. It's a status region, and the pointer passes through it.
+- **Paused page:** a crosshair over the whole page; clicks don't reach it. The panel stays usable above it.
+- **Eye state** in the Rendered section is kept: those marks are hidden while inspecting and return on exit. The Rendered section never changes.
+
 Why the panel floats here when UI3 docked its panels: Figma docked them because they covered the canvas. We are layered over someone else's app and can't take space away from it, so the panel floats and collapses to the toolbar instead. This is Figma's "Minimize UI" pattern, used as our default.
 
 ## 11. Components: direction

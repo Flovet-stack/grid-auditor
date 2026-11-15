@@ -14,9 +14,11 @@ import {
 import { createPanel, PANEL_STYLES } from './panel';
 import { fingerprint, type Position, type Stored, safeStorage, snippet, toInputs } from './persist';
 import { renderBreakpoint, STYLES } from './render';
-import { createRendered, RENDERED_STYLES } from './rendered';
+import { createInspectPill, createRendered, RENDERED_STYLES, setInspectPill } from './rendered';
 import {
+  type InspectShortcut,
   isFromEditable,
+  matchesInspect,
   matchesPanel,
   matchesToggle,
   type PanelShortcut,
@@ -43,6 +45,8 @@ export interface GridOverlayOptions {
     readonly toggle?: ToggleShortcut;
     /** Default `'Mod+Shift+G'` (Cmd/Ctrl+Shift+G) opens the control panel; `false` turns it off. */
     readonly panel?: PanelShortcut;
+    /** Default `'Shift+M'` toggles the geometry inspector (0018); `false` turns it off. */
+    readonly inspect?: InspectShortcut;
   };
 }
 
@@ -73,6 +77,7 @@ interface State {
   breakpoints: readonly Breakpoint[];
   toggle: ToggleShortcut;
   panel: PanelShortcut;
+  inspect: InspectShortcut;
   visible: boolean;
 }
 
@@ -132,6 +137,7 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
     breakpoints: parse(options.breakpoints, options.extendDefaults),
     toggle: options.shortcuts?.toggle ?? 'Shift+G',
     panel: options.shortcuts?.panel ?? 'Mod+Shift+G',
+    inspect: options.shortcuts?.inspect ?? 'Shift+M',
     visible: options.visible ?? true,
   };
 
@@ -236,7 +242,10 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
     document,
     host,
     {
-      onChange: () => panel.syncRendered(),
+      onChange: () => {
+        setInspectPill(inspectPill, rendered.isInspecting());
+        panel.syncRendered();
+      },
       onPick: (el) => panel.picked(el),
     },
     signal,
@@ -306,7 +315,9 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
     },
     signal,
   );
-  shadow.append(style, layer, rendered.element, panel.element);
+  // The inspector pill sits outside the aria-hidden rendered layer, so it's announced (spec 08).
+  const inspectPill = createInspectPill(document);
+  shadow.append(style, layer, rendered.element, inspectPill, panel.element);
   document.documentElement.append(host);
 
   const flush = (): void => {
@@ -344,14 +355,24 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
     { signal },
   );
   window.addEventListener('scroll', () => schedule(false), { signal, passive: true });
-  // Esc cancels Pick before anything else closes (spec 07). Registered before the other key listeners.
+  // Esc cancels Pick or ends the inspector before anything else closes (specs 07, 08), and
+  // Shift+M ends the inspector. Registered before the other key listeners.
   window.addEventListener(
     'keydown',
     (event) => {
-      if (event.key !== 'Escape' || !rendered.isPicking()) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      rendered.cancelPick();
+      const inspecting = rendered.isInspecting();
+      if (event.key === 'Escape' && (rendered.isPicking() || inspecting)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        rendered.cancelPick();
+        rendered.stopInspect();
+        return;
+      }
+      if (inspecting && !isFromEditable(event) && matchesInspect(event, state.inspect)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        rendered.stopInspect();
+      }
     },
     { signal, capture: true },
   );
@@ -363,6 +384,10 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
         event.preventDefault();
         if (panel.isOpen()) overlay.closePanel();
         else overlay.openPanel();
+        return;
+      }
+      if (matchesInspect(event, state.inspect)) {
+        rendered.startInspect();
         return;
       }
       if (!matchesToggle(event, state.toggle)) return;
@@ -414,6 +439,7 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
       adoptCode();
       state.toggle = next.shortcuts?.toggle ?? 'Shift+G';
       state.panel = next.shortcuts?.panel ?? 'Mod+Shift+G';
+      state.inspect = next.shortcuts?.inspect ?? 'Shift+M';
       if (next.visible !== undefined) state.visible = next.visible;
       activeIndex = activeOf();
       schedule(true);

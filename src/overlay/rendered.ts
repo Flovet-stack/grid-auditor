@@ -1,6 +1,7 @@
 /**
  * The rendered grid overlay (decision 0015, spec 07): which containers are found and shown,
  * their marks, the hover outline, track-size hover and Pick. The panel drives it.
+ * The geometry inspector (0018, spec 08) draws the hovered container instead of the shown set.
  */
 import {
   type AxisTracks,
@@ -16,6 +17,10 @@ import {
   type Rect,
   scanContainers,
 } from './containers';
+
+/** The panel's font stack (0014); the inspector pill uses it too. */
+export const UI_FONT =
+  'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, SFProLocalRange';
 
 /** Gap pink, derived from the primary blue (0016): same saturation and lightness, hue mirrored 205° → 330°. */
 export const GAP_COLOR = '#e90c7a';
@@ -56,7 +61,44 @@ export const RENDERED_STYLES: string = `
 .rtag { background: #2c2c2c; }
 .rtag .rdim { margin-left: 6px; font-weight: 400; opacity: 0.6; }
 .pick { position: fixed; inset: 0; pointer-events: auto; cursor: crosshair; background: transparent; }
+.ipill { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 1; margin: 0 auto;
+  width: fit-content; box-sizing: border-box; padding: 6px 12px; border-radius: 16px;
+  text-align: center; background: #2c2c2c; color: #fff; pointer-events: none;
+  font: 500 11px/16px ${UI_FONT};
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35), 0 1px 3px rgb(0 0 0 / 0.3); }
+.ipill[hidden] { display: none; }
+.ipill kbd { margin: 0 2px; padding: 0 4px; border: 1px solid #444; border-radius: 3px;
+  background: #383838; font: inherit; white-space: nowrap; }
 `;
+
+/** The inspector's status text (0018 §2), before the `Esc` chip and after it. */
+export const INSPECT_TEXT: readonly [string, string] = [
+  'Geometry inspector on · Page interactions paused · Press ',
+  ' to exit',
+];
+
+/** The pill shown while the inspector is on (0018 §2). Lives outside the aria-hidden layer. */
+export function createInspectPill(doc: Document): HTMLElement {
+  const pill = doc.createElement('div');
+  pill.className = 'ipill';
+  pill.setAttribute('role', 'status');
+  pill.hidden = true;
+  return pill;
+}
+
+/** Fills the pill when the inspector turns on, so the live region announces it once. */
+export function setInspectPill(pill: HTMLElement, on: boolean): void {
+  if (on === !pill.hidden) return;
+  pill.hidden = !on;
+  if (!on) {
+    pill.replaceChildren();
+    return;
+  }
+  const doc = pill.ownerDocument;
+  const kbd = doc.createElement('kbd');
+  kbd.textContent = 'Esc';
+  pill.replaceChildren(INSPECT_TEXT[0], kbd, INSPECT_TEXT[1]);
+}
 
 export interface RenderedItem extends FoundContainer {
   /** Gap audit text, computed on demand and cached until the next scan. */
@@ -78,6 +120,10 @@ export interface Rendered {
   startPick(): void;
   cancelPick(): void;
   isPicking(): boolean;
+  /** Geometry inspector (0018): draws only the hovered container; eye state is kept as is. */
+  startInspect(): void;
+  stopInspect(): void;
+  isInspecting(): boolean;
   setVisible(visible: boolean): void;
   destroy(): void;
 }
@@ -126,6 +172,9 @@ export function createRendered(
   let hasScanned = false;
   let watching = false;
   let picking = false;
+  let inspecting = false;
+  /** The container under the pointer while inspecting. */
+  let inspectTarget: Element | undefined;
   let highlighted: Element | undefined;
   let pickTarget: Element | undefined;
   const shown = new Set<Element>();
@@ -219,12 +268,15 @@ export function createRendered(
     const frag = doc.createDocumentFragment();
     let dropped = false;
     for (const target of [...shown]) {
-      if (!target.isConnected) {
-        unwatch(target);
-        shown.delete(target);
-        dropped = true;
-        continue;
-      }
+      if (target.isConnected) continue;
+      unwatch(target);
+      shown.delete(target);
+      dropped = true;
+    }
+    if (inspectTarget && !inspectTarget.isConnected) setInspectTarget(undefined);
+    // While inspecting, only the hovered container is drawn; `shown` is left untouched (0018 §5).
+    const targets = inspecting ? (inspectTarget ? [inspectTarget] : []) : [...shown];
+    for (const target of targets) {
       const layout = measureContainer(target);
       if (!layout) continue;
       const group = el('rgroup');
@@ -303,6 +355,13 @@ export function createRendered(
     childObserver.disconnect();
     sizeObserver.disconnect();
     for (const t of shown) watch(t);
+    if (inspectTarget) watch(inspectTarget);
+  };
+  const setInspectTarget = (next: Element | undefined): void => {
+    if (next === inspectTarget) return;
+    inspectTarget = next;
+    rewatchChildren();
+    request();
   };
 
   view.addEventListener('scroll', request, { signal, capture: true, passive: true });
@@ -343,10 +402,22 @@ export function createRendered(
     'pointermove',
     (e) => {
       const next = containerAt(underPointer(e.clientX, e.clientY), host);
+      if (inspecting) {
+        setInspectTarget(next);
+        return;
+      }
       if (next !== pickTarget) {
         pickTarget = next;
         drawHighlight();
       }
+    },
+    { signal },
+  );
+  // Over the panel or outside the window, the inspector shows nothing (spec 08).
+  capture.addEventListener(
+    'pointerleave',
+    () => {
+      if (inspecting) setInspectTarget(undefined);
     },
     { signal },
   );
@@ -357,7 +428,8 @@ export function createRendered(
         // The page never sees a click while picking (0015): it lands on our layer and stops here.
         e.preventDefault();
         e.stopPropagation();
-        if (type !== 'click') return;
+        // While inspecting, a click does nothing else (0018 §6).
+        if (inspecting || type !== 'click') return;
         const me = e as MouseEvent;
         const target = containerAt(underPointer(me.clientX, me.clientY), host);
         api.cancelPick();
@@ -410,6 +482,7 @@ export function createRendered(
     },
     startPick() {
       if (picking) return;
+      api.stopInspect(); // never both on (0018 §7)
       picking = true;
       pill.hidden = true;
       capture.hidden = false;
@@ -424,6 +497,25 @@ export function createRendered(
       events.onChange();
     },
     isPicking: () => picking,
+    startInspect() {
+      if (inspecting) return;
+      api.cancelPick(); // never both on (0018 §7)
+      inspecting = true;
+      pill.hidden = true;
+      capture.hidden = false;
+      request();
+      events.onChange();
+    },
+    stopInspect() {
+      if (!inspecting) return;
+      inspecting = false;
+      capture.hidden = true;
+      pill.hidden = true;
+      setInspectTarget(undefined);
+      request();
+      events.onChange();
+    },
+    isInspecting: () => inspecting,
     setVisible(visible) {
       marks.hidden = !visible;
       if (!visible) pill.hidden = true;

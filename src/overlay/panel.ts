@@ -12,7 +12,7 @@ import {
   type LayoutGridInput,
 } from '../engine';
 import { type Position, toInput } from './persist';
-import type { Rendered, RenderedItem } from './rendered';
+import { type Rendered, type RenderedItem, UI_FONT } from './rendered';
 
 export interface PanelStore {
   breakpoints(): readonly Breakpoint[];
@@ -64,12 +64,11 @@ export interface Panel {
 }
 
 /** Colours, font and sizes from decision 0014 (Figma's dark UI). */
-export const PANEL_STYLES = `
+export const PANEL_STYLES: string = `
 .panel {
   --ga-bg: #2c2c2c; --ga-border: #444; --ga-primary: #0c8ce9; --ga-secondary: #383838;
   --ga-active: #32394d; --ga-text: #ffffff; --ga-muted: rgb(255 255 255 / 0.7); --ga-error: #ff8a8a;
-  --ga-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, "Noto Sans", sans-serif, SFProLocalRange;
+  --ga-font: ${UI_FONT};
   position: absolute; top: 12px; right: 12px; box-sizing: border-box;
   width: min(260px, calc(100vw - 24px)); max-height: calc(100vh - 24px);
   display: flex; flex-direction: column; pointer-events: auto;
