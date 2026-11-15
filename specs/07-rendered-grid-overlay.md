@@ -12,6 +12,8 @@ A developer sees the grid the page actually laid out: a container's real grid tr
 
 Implements 0015 and the container overlay part of 0011, which 0015 updates. Follows 0005 (rendered style, never colour alone), 0007 (page space), 0014 (panel look, progressive disclosure, spectrum of explicitness) and 0006 (rounding of displayed values).
 
+Two details 0015 left open were approved by Flovet on 2026-11-15, in chat: Shift+G hides rendered marks along with the expected grid, and transformed containers draw only gaps and the content box (see Drawing and Edge cases).
+
 ## Acceptance criteria
 
 ### Detection: new `src/overlay/containers.ts`
