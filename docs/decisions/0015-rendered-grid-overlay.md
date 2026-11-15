@@ -4,7 +4,7 @@
 - **Proposed:** 2026-11-15 by the product team (roles: Tech Lead, Project Manager, Product, UX, UI, Copy, Frontend)
 - **Approved:** 2026-11-15 by Flovet
 - **Supersedes:** part of 0011: the build order (grid features before the geometry inspector), and how a container is chosen for the container layout overlay (0011 spec 05 used the inspector's pin)
-- **Specs:** none yet
+- **Specs:** specs/07-rendered-grid-overlay.md
 
 ## Context
 
