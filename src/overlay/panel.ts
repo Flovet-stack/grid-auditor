@@ -184,6 +184,9 @@ const ICONS = {
   close: '<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>',
   chevron: '<path d="M5.5 6.75 8 9.25l2.5-2.5"/>',
   check: '<path d="M4 8.25 6.75 11 12 5.5"/>',
+  styles: [5.5, 10.5]
+    .flatMap((y) => [5.5, 10.5].map((x) => `<circle cx="${x}" cy="${y}" r="1.75"/>`))
+    .join(''),
   COLUMNS: '<rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/><path d="M6.5 3.5v9M9.5 3.5v9"/>',
   ROWS: '<rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/><path d="M3.5 6.5h9M3.5 9.5h9"/>',
   GRID: '<rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/><path d="M6.5 3.5v9M9.5 3.5v9M3.5 6.5h9M3.5 9.5h9"/>',
@@ -1127,6 +1130,16 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
     }
     const sh = el('div', { class: 'section-head' });
     sh.append(el('h3', { id: 'ga-layout', tabindex: '-1' }, 'Layout guide'));
+    // Placeholder for layout guide styles, as in Figma; no behaviour yet.
+    const styles = el('button', {
+      type: 'button',
+      'aria-label': 'Styles (coming soon)',
+      'aria-disabled': 'true',
+      title: 'Styles (coming soon)',
+      'data-key': 'styles',
+    });
+    styles.innerHTML = icon('styles');
+    sh.append(styles);
     const add = el('button', {
       type: 'button',
       'aria-label': 'Add grid',

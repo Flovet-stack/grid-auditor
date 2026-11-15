@@ -546,3 +546,17 @@ describe('11. type menu and no Reset to code (0014 §8)', () => {
     expect(shadow().activeElement).toBe(q('[data-key="g0-summary"]'));
   });
 });
+
+describe('12. styles placeholder', () => {
+  it('shows a Styles button beside + that does nothing yet', async () => {
+    overlay = createGridOverlay();
+    overlay.openPanel();
+    const styles = q('[data-key="styles"]');
+    expect(styles.getAttribute('aria-disabled')).toBe('true');
+    expect(styles.nextElementSibling).toBe(q('[data-key="add"]'));
+    styles.click();
+    await frames();
+    expect(shadow().querySelectorAll('.grid')).toHaveLength(1);
+    expect(q('.popover')).toBeNull();
+  });
+});

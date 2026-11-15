@@ -39,6 +39,7 @@ Spec 03 shows every field of every grid at once. With three or four grids the pa
    - **The summary is a type dropdown.** Clicking it opens a menu with Grid, Columns and Rows, the same choice as the popover's pattern dropdown, as in Figma. Only the type icon opens the popover.
    - **No Reset to code button.** A panel with zero grids is fine, and the minus button already removes grids. It can come back if users ask. This supersedes the Reset part of 0013 and spec 04; `update()` and `setBreakpoints()` from code still clear saved edits.
    - **The badge shows only the breakpoint,** for example `Desktop`. The grid details repeated the first row, and the "Edited" suffix went with Reset.
+   - **Styles placeholder.** A Styles button (four small circles) sits left of the + button, as in Figma. It is marked disabled and does nothing until a later decision gives it a job.
 
 ## Consequences
 
