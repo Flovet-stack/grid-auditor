@@ -1,6 +1,6 @@
 # 07: Rendered grid overlay
 
-Status: In progress
+Status: Done (https://github.com/Flovet-stack/grid-auditor/pull/10)
 
 Brief: must-have #3 (rendered grid overlay). It builds on specs 02–04.
 

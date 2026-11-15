@@ -34,6 +34,129 @@
         <div class="box">Card</div>
       </div>
     </section>
+    <!-- Interactive fixtures: check that Pick and the inspector (Shift+M) pause these, and that they work again after. -->
+    <section class="play" aria-labelledby="play-title">
+      <h2 id="play-title">Interactive</h2>
+      <p class="hint">
+        Every click on this page is counted in the log. With the inspector on, nothing should
+        reach it.
+      </p>
+      <div class="play-grid">
+        <form class="play-form" onsubmit="return false">
+          <label class="field"
+            >Name <input name="name" placeholder="Type here, try Shift+M" /></label
+          ><label class="field"
+            >Role
+            <select name="role">
+              <option>Designer</option>
+              <option>Developer</option>
+            </select></label
+          ><label class="field wide"
+            >Notes <textarea name="notes" rows="3"></textarea></label
+          ><label class="check"><input type="checkbox" /> Remember me</label>
+          <div class="actions">
+            <button type="submit" class="btn primary">Save</button>
+            <button type="button" class="btn">Cancel</button>
+          </div>
+        </form>
+        <div class="play-side">
+          <div class="counter">
+            <button type="button" class="btn primary" id="count-btn">Click me</button>
+            <output id="count">0 clicks</output>
+          </div>
+          <a class="link-card" href="#play-title">
+            <strong>Hover card link</strong>
+            <span class="link-sub">Changes colour on hover, jumps to the top of this section on click.</span>
+          </a>
+          <details class="disclose">
+            <summary>Details toggle</summary>
+            <p>Opened by a click on the summary.</p>
+          </details>
+          <ul class="scroller" aria-label="Scrollable list">
+            <li>Scroll me 1</li>
+            <li>Scroll me 2</li>
+            <li>Scroll me 3</li>
+            <li>Scroll me 4</li>
+            <li>Scroll me 5</li>
+            <li>Scroll me 6</li>
+            <li>Scroll me 7</li>
+            <li>Scroll me 8</li>
+          </ul>
+        </div>
+      </div>
+      <ol class="log" id="click-log" aria-label="Click log" aria-live="polite"></ol>
+    </section>
+    <!-- Dark fixtures: marks, tags, value boxes and the pill on a dark page. -->
+    <section class="dark" aria-labelledby="dark-title">
+      <h2 id="dark-title">Dark background</h2>
+      <nav class="dark-nav" aria-label="Dark toolbar">
+        <a href="#dark-title">Overview</a><a href="#dark-title">Projects</a
+        ><a href="#dark-title">Settings</a>
+        <button type="button" class="btn ghost">Sign out</button>
+      </nav>
+      <div class="dark-cards">
+        <article class="dark-card">
+          <h3>Revenue</h3>
+          <p class="stat">$48,210</p>
+        </article>
+        <article class="dark-card">
+          <h3>Users</h3>
+          <p class="stat">1,204</p>
+        </article>
+        <article class="dark-card">
+          <h3>Churn</h3>
+          <p class="stat">2.1%</p>
+        </article>
+        <article class="dark-card wide">
+          <h3>Activity</h3>
+          <div class="bars" aria-hidden="true">
+            <i style="height: 40%"></i><i style="height: 70%"></i><i style="height: 55%"></i
+            ><i style="height: 90%"></i><i style="height: 30%"></i><i style="height: 65%"></i>
+          </div>
+        </article>
+      </div>
+    </section>
+    <!-- Nested fixtures: grid and flex containers seven levels deep, plus a subgrid and a transformed grid. -->
+    <section class="nest" aria-labelledby="nest-title">
+      <h2 id="nest-title">Deeply nested</h2>
+      <div class="nest-1">
+        <div class="nest-2">
+          <div class="nest-3">
+            <div class="nest-4">
+              <div class="nest-5">
+                <div class="nest-6">
+                  <div class="nest-7">
+                    <span class="chip">7</span><span class="chip">deep</span
+                    ><span class="chip">flex</span>
+                  </div>
+                  <div class="leaf">Level 6 grid</div>
+                </div>
+                <div class="leaf">Level 5 flex</div>
+              </div>
+              <div class="leaf">Level 4 grid</div>
+              <div class="leaf">Level 4 grid</div>
+            </div>
+            <div class="leaf">Level 3 flex column</div>
+          </div>
+          <div class="leaf">Level 2 grid</div>
+        </div>
+        <aside class="leaf">Level 1 flex</aside>
+      </div>
+      <div class="nest-sub">
+        <div class="sub-row">
+          <div class="leaf">Subgrid row</div>
+          <div class="leaf">shares the</div>
+          <div class="leaf">parent's columns</div>
+        </div>
+        <div class="leaf">Parent</div>
+        <div class="leaf">grid</div>
+        <div class="leaf">cells</div>
+      </div>
+      <div class="nest-rotated">
+        <div class="leaf">Transformed</div>
+        <div class="leaf">grid</div>
+      </div>
+    </section>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
