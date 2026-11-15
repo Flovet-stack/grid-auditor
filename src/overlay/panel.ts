@@ -12,6 +12,7 @@ import {
   type LayoutGridInput,
 } from '../engine';
 import { type Position, toInput } from './persist';
+import type { Rendered, RenderedItem } from './rendered';
 
 export interface PanelStore {
   breakpoints(): readonly Breakpoint[];
@@ -35,6 +36,8 @@ export interface PanelStore {
   snippet(): string;
   position(): Position | undefined;
   savePosition(position: Position): void;
+  /** The rendered grid overlay (0015, spec 07). */
+  rendered(): Rendered;
 }
 
 /** Why the panel is re-syncing: code replaces everything; panel and resize keep in-progress fields. */
@@ -54,6 +57,10 @@ export interface Panel {
    * listener, then stops the event so the page's key listeners never see panel typing.
    */
   handleKey(event: KeyboardEvent): void;
+  /** Re-renders the Rendered section after the list, shown set or Pick state changes. */
+  syncRendered(): void;
+  /** Pick chose `el`: open the section (and the flex filter if needed) and focus its row. */
+  picked(el: Element): void;
 }
 
 /** Colours, font and sizes from decision 0014 (Figma's dark UI). */
@@ -172,6 +179,22 @@ kbd { font: 400 11px var(--ga-font); color: var(--ga-muted); border: 1px solid v
   padding: 0 12px 0 4px; border-radius: 0; color: var(--ga-text); }
 .menu button:hover, .menu button:focus-visible { background: var(--ga-primary); outline: none; }
 .menu button[aria-selected="false"] svg { visibility: hidden; }
+.rsec { margin-top: 8px; border-top: 1px solid var(--ga-border); padding-top: 4px; }
+.rsec h3 { display: flex; min-width: 0; }
+.disclosure { flex: 1; justify-content: flex-start; gap: 4px; margin-left: -8px; padding: 0 4px;
+  font-weight: 600; min-width: 0; }
+.disclosure[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.disclosure .count { color: var(--ga-muted); font-weight: 400; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.rrow { display: flex; align-items: center; gap: 2px; height: 32px; padding: 0 8px 0 0; }
+.rrow:hover, .rrow:focus-within { background: var(--ga-secondary); }
+.rrow .ticon { display: flex; align-items: center; justify-content: center; width: 32px;
+  flex: 0 0 32px; color: var(--ga-muted); }
+.rrow .rlabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rrow .rlabel small { margin-left: 6px; color: var(--ga-muted); font: inherit; }
+.panel .pickbtn[aria-pressed="true"] { background: var(--ga-active); color: var(--ga-text); }
+.flex-toggle { margin: 4px 16px; }
+.panel .flex-toggle[aria-pressed="true"] { background: var(--ga-active); color: var(--ga-text); }
 `;
 
 /** Our own 16 px icons, drawn in Figma's style (0014). */
@@ -190,6 +213,8 @@ const ICONS = {
   COLUMNS: '<rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/><path d="M6.5 3.5v9M9.5 3.5v9"/>',
   ROWS: '<rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/><path d="M3.5 6.5h9M3.5 9.5h9"/>',
   GRID: '<rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/><path d="M6.5 3.5v9M9.5 3.5v9M3.5 6.5h9M3.5 9.5h9"/>',
+  flex: '<rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/><path d="M5.5 6v4M8 6v4M10.5 6v4"/>',
+  target: '<circle cx="8" cy="8" r="3.5"/><path d="M8 2v2.5M8 11.5V14M2 8h2.5M11.5 8H14"/>',
   grip: [5, 8, 11]
     .flatMap((y) => [6, 10].map((x) => `<circle class="dot" cx="${x}" cy="${y}" r="1"/>`))
     .join(''),
@@ -1097,6 +1122,135 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
     return f;
   };
 
+  // ----- Rendered section (0015, spec 07) -----
+
+  /** The section element is kept across rebuilds; only its contents are redrawn. */
+  const rsec = el('section', { class: 'rsec', 'aria-labelledby': 'ga-rendered' });
+  let rOpen = false;
+  let showFlex = false;
+  const watch = (): void => store.rendered().setWatching(rOpen && !root.hidden);
+  const countText = (items: readonly RenderedItem[]): string => {
+    const grids = items.filter((i) => i.kind === 'grid').length;
+    const flex = items.length - grids;
+    return `${grids} ${grids === 1 ? 'grid' : 'grids'}, ${flex} flex`;
+  };
+  /** Rows in display order: grid containers, then flex ones when "Show flex" is on. */
+  const visibleItems = (): RenderedItem[] => {
+    const items = store.rendered().items();
+    return [
+      ...items.filter((i) => i.kind === 'grid'),
+      ...(showFlex ? items.filter((i) => i.kind === 'flex') : []),
+    ];
+  };
+
+  const renderRenderedRow = (item: RenderedItem, j: number): HTMLElement => {
+    const r = store.rendered();
+    const row = el('div', { class: 'rrow', role: 'group', 'aria-label': item.label });
+    const ticon = el('span', { class: 'ticon' });
+    ticon.innerHTML = icon(item.kind === 'grid' ? 'GRID' : 'flex');
+    const audit = item.audit();
+    const label = el('span', { class: 'rlabel', title: `${item.label} · ${audit}` }, item.label);
+    label.append(el('small', {}, audit));
+    const on = r.isShown(item.el);
+    const eye = el('button', {
+      type: 'button',
+      'aria-pressed': String(on),
+      'aria-label': `Show ${item.label}`,
+      title: on ? 'Hide' : 'Show',
+      'data-key': `r${j}-visible`,
+    });
+    eye.innerHTML = icon(on ? 'eye' : 'eyeOff');
+    eye.addEventListener('click', () => r.setShown(item.el, !r.isShown(item.el)), { signal });
+    const show = (): void => r.highlight(item.el);
+    const hide = (): void => r.highlight(undefined);
+    row.addEventListener('pointerenter', show, { signal });
+    row.addEventListener('pointerleave', hide, { signal });
+    row.addEventListener('focusin', show, { signal });
+    row.addEventListener('focusout', hide, { signal });
+    row.append(ticon, label, eye);
+    return row;
+  };
+
+  function renderRendered(): void {
+    const r = store.rendered();
+    const shadow = root.getRootNode() as ShadowRoot | Document;
+    const focused = shadow.activeElement as HTMLElement | null;
+    const focusedKey = focused && rsec.contains(focused) ? focused.dataset.key : undefined;
+
+    const sh = el('div', { class: 'section-head' });
+    const h = el('h3', { id: 'ga-rendered' });
+    const toggle = el('button', {
+      type: 'button',
+      class: 'disclosure',
+      'aria-expanded': String(rOpen),
+      'data-key': 'rendered-toggle',
+    });
+    toggle.innerHTML = `${icon('chevron')}<span>Rendered</span>`;
+    if (r.scanned()) toggle.append(el('span', { class: 'count' }, countText(r.items())));
+    toggle.addEventListener(
+      'click',
+      () => {
+        rOpen = !rOpen;
+        watch();
+        renderRendered();
+      },
+      { signal },
+    );
+    h.append(toggle);
+    const pick = el('button', {
+      type: 'button',
+      class: 'pickbtn',
+      'aria-pressed': String(r.isPicking()),
+      'aria-label': 'Pick a container',
+      title: 'Pick a container',
+      'data-key': 'pick',
+    });
+    pick.innerHTML = icon('target');
+    pick.addEventListener('click', () => (r.isPicking() ? r.cancelPick() : r.startPick()), {
+      signal,
+    });
+    sh.append(h, pick);
+    const parts: HTMLElement[] = [sh];
+
+    if (rOpen) {
+      const items = r.items();
+      const flexCount = items.filter((i) => i.kind === 'flex').length;
+      if (items.length === 0) {
+        parts.push(el('p', { class: 'empty' }, 'No grid or flex containers on this page.'));
+      } else {
+        const list = el('div', { class: 'list', role: 'group', 'aria-labelledby': 'ga-rendered' });
+        visibleItems().forEach((item, j) => {
+          list.append(renderRenderedRow(item, j));
+        });
+        parts.push(list);
+        if (flexCount) {
+          const flexBtn = el(
+            'button',
+            {
+              type: 'button',
+              class: 'text-btn flex-toggle',
+              'aria-pressed': String(showFlex),
+              'data-key': 'show-flex',
+            },
+            'Show flex',
+          );
+          flexBtn.addEventListener(
+            'click',
+            () => {
+              showFlex = !showFlex;
+              renderRendered();
+            },
+            { signal },
+          );
+          parts.push(flexBtn);
+        }
+      }
+    }
+    rsec.replaceChildren(...parts);
+    if (focusedKey)
+      rsec.querySelector<HTMLElement>(`[data-key="${focusedKey}"]`)?.focus({ preventScroll: true });
+  }
+
   const rebuild = (index: number, bp: Breakpoint | undefined): void => {
     const shadow = root.getRootNode() as ShadowRoot | Document;
     const focusedKey = (shadow.activeElement as HTMLElement | null)?.dataset?.key;
@@ -1165,7 +1319,8 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
     });
     if (bp && bp.grids.length === 0)
       list.append(el('p', { class: 'empty' }, 'No grids. Add one with +.'));
-    body.replaceChildren(...parts, sh, list, footer());
+    body.replaceChildren(...parts, sh, list, footer(), rsec);
+    renderRendered();
 
     popover?.remove();
     popover = undefined;
@@ -1258,11 +1413,15 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
       if (open === !root.hidden) return;
       root.hidden = !open;
       if (open) {
+        watch();
         sync('code');
         if (!pos) pos = store.position();
         place();
       } else {
         openGrid = -1;
+        watch();
+        store.rendered().cancelPick();
+        store.rendered().highlight(undefined);
         const shadow = root.getRootNode() as ShadowRoot | Document;
         if (root.contains(shadow.activeElement)) (shadow.activeElement as HTMLElement).blur();
       }
@@ -1280,6 +1439,22 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
         return;
       }
       keyHandlers.get(event.composedPath()[0] as EventTarget)?.(event);
+    },
+    syncRendered() {
+      if (!root.hidden) renderRendered();
+    },
+    picked(target) {
+      rOpen = true;
+      watch();
+      const item = store
+        .rendered()
+        .items()
+        .find((i) => i.el === target);
+      if (item?.kind === 'flex') showFlex = true;
+      if (root.hidden) return;
+      renderRendered();
+      const j = visibleItems().findIndex((i) => i.el === target);
+      rsec.querySelector<HTMLElement>(`[data-key="r${j}-visible"]`)?.focus({ preventScroll: true });
     },
   };
 }

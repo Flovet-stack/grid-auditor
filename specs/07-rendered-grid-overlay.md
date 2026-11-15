@@ -1,6 +1,6 @@
 # 07: Rendered grid overlay
 
-Status: Ready
+Status: In progress
 
 Brief: must-have #3 (rendered grid overlay). It builds on specs 02–04.
 
