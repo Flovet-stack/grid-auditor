@@ -12,6 +12,7 @@ A floating panel, inside the existing shadow root, shows the active breakpoint a
 
 Implements 0012. Follows 0002 (single store, shadow root, AbortController), 0005 (design brief §8 shortcuts, §9.2–9.4 chrome, §10 placement, §11 components, §12 accessibility), 0006 (snapping is unchanged) and 0010 (validation and merge rules). Builds on spec 02.
 
+> **Updated by [0014](../docs/decisions/0014-figma-layout-guide-panel.md):** each grid is a compact 32 px row: drag handle, type icon, summary, eye and minus. Its fields open in a popover in Figma's order. Grids can be reordered, and the panel uses Figma's dark UI colours. Where this spec describes one block of fields per grid, 0014 wins.
 ## Acceptance criteria
 
 ### Opening and placement
@@ -25,7 +26,7 @@ Implements 0012. Follows 0002 (single store, shadow root, AbortController), 0005
 
 ### Content (design brief §10)
 
-- [ ] **Breakpoint badge** at the top shows the active breakpoint and a summary of its first grid, for example `Desktop · 12 cols · 24 px gutter`. It updates when the breakpoint switches during a resize.
+- [ ] **Breakpoint badge** at the top shows only the active breakpoint, for example `Desktop` (0014 §8). It updates when the breakpoint switches during a resize.
 - [ ] **Layout guides section:** one row per grid in the **active** breakpoint, in the store's order. Each row has:
   - an eye toggle (`visible`)
   - pattern (Columns, Rows, Grid)
@@ -64,7 +65,7 @@ Implements 0012. Follows 0002 (single store, shadow root, AbortController), 0005
 ## Tests (browser, Chromium)
 
 1. **Open and close:** `Ctrl+Shift+G` opens and closes the panel and is prevented. With `shortcuts.panel: false` it does nothing. `openPanel()` and `closePanel()` work. `Esc` inside the panel closes it.
-2. **Badge:** at 1440 it reads `Desktop · 12 cols · 24 px gutter`. At 800 it reads Tablet.
+2. **Badge:** at 1440 it reads `Desktop`. At 800 it reads Tablet.
 3. **Live edit:** changing Desktop's count to 16 in the panel gives 16 column elements after one frame. The positions match the engine (as in spec 02 test 1).
 4. **Invalid:** typing `0` in count shows the error, sets `aria-invalid`, keeps 12 columns, and throws nothing.
 5. **Add, remove and visibility:** add a Rows grid, and row marks appear. Remove it, and they're gone. The eye toggle hides one grid only.
