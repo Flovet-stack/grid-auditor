@@ -5,6 +5,9 @@
  */
 import { snap } from '../engine';
 
+/** Rounds a displayed px value per 0006. */
+export const snapValue = (v: number): number => snap(v);
+
 export interface Rect {
   readonly left: number;
   readonly top: number;
@@ -177,6 +180,47 @@ export function pairGaps(children: readonly Rect[]): Gap[] {
   return gaps;
 }
 
+/** One padding side to shade (0016): its band in the padding box and its size. */
+export interface Band extends Rect {
+  readonly side: 'top' | 'right' | 'bottom' | 'left';
+  readonly size: number;
+}
+
+/**
+ * The four padding bands of a padding box, as Chrome DevTools draws them: top and bottom
+ * span the full width, left and right fill the height between them. Sides of 0 are skipped.
+ */
+export function paddingBands(
+  box: Rect,
+  top: number,
+  rightSize: number,
+  bottomSize: number,
+  left: number,
+): Band[] {
+  const middle = Math.max(0, box.height - top - bottomSize);
+  const bands: Band[] = [
+    { side: 'top', size: top, left: box.left, top: box.top, width: box.width, height: top },
+    {
+      side: 'right',
+      size: rightSize,
+      left: box.left + box.width - rightSize,
+      top: box.top + top,
+      width: rightSize,
+      height: middle,
+    },
+    {
+      side: 'bottom',
+      size: bottomSize,
+      left: box.left,
+      top: box.top + box.height - bottomSize,
+      width: box.width,
+      height: bottomSize,
+    },
+    { side: 'left', size: left, left: box.left, top: box.top + top, width: left, height: middle },
+  ];
+  return bands.filter((b) => b.size > 0 && b.width > 0 && b.height > 0);
+}
+
 /** `24 ×5`, or `16 ×3, 24 ×1 · inconsistent` (most common first), for one axis. */
 function auditValues(values: readonly number[]): string {
   const counts = new Map<number, number>();
@@ -232,6 +276,23 @@ const toRect = (r: DOMRect): Rect => ({
   height: r.height,
 });
 
+/** True as soon as one child is laid out (cheaper than `layoutChildren` for detection). */
+function hasLayoutChild(el: Element): boolean {
+  const view = el.ownerDocument.defaultView;
+  for (const child of Array.from(el.children)) {
+    const r = child.getBoundingClientRect();
+    const style = view?.getComputedStyle(child);
+    if (!style || style.display === 'none') continue;
+    if (style.display === 'contents') {
+      if (hasLayoutChild(child)) return true;
+      continue;
+    }
+    if (style.position === 'absolute' || style.position === 'fixed') continue;
+    if (r.width > 0 || r.height > 0) return true;
+  }
+  return false;
+}
+
 /** The children that are laid out: `display: contents` is flattened; absolute, fixed and empty boxes are skipped. */
 export function layoutChildren(el: Element): Element[] {
   const view = el.ownerDocument.defaultView;
@@ -267,7 +328,7 @@ export function containerKind(el: Element, style?: CSSStyleDeclaration): Contain
   if (!kind) return undefined;
   const r = el.getBoundingClientRect();
   if (r.width === 0 || r.height === 0) return undefined;
-  return layoutChildren(el).length > 0 ? kind : undefined;
+  return hasLayoutChild(el) ? kind : undefined;
 }
 
 export interface FoundContainer {
@@ -280,15 +341,16 @@ export interface FoundContainer {
 export function scanContainers(doc: Document, skip: Element): FoundContainer[] {
   const view = doc.defaultView;
   const found: { el: Element; kind: ContainerKind }[] = [];
-  const walker = doc.createTreeWalker(doc.documentElement, NodeFilter.SHOW_ELEMENT, {
-    acceptNode: (n) => (n === skip ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
-  });
-  for (let n: Node | null = walker.currentNode; n; n = walker.nextNode()) {
-    const el = n as Element;
+  // A flat list is much faster than a TreeWalker with a JS filter. `skip` (our host) has no
+  // light-DOM children, so skipping the element itself is enough.
+  const all = doc.getElementsByTagName('*');
+  for (let i = 0; i < all.length; i++) {
+    const el = all[i] as Element;
+    if (el === skip) continue;
     const style = view?.getComputedStyle(el);
-    if (!style) continue;
+    const display = style?.display ?? '';
     // Cheap check first; only possible containers pay for boxes and children.
-    if (!/^(inline-)?(grid|flex)$/.test(style.display)) continue;
+    if (display.length < 4 || !/^(inline-)?(grid|flex)$/.test(display)) continue;
     const kind = containerKind(el, style);
     if (kind) found.push({ el, kind });
   }
@@ -336,6 +398,8 @@ export interface ContainerLayout {
   readonly columns: AxisTracks;
   readonly rows: AxisTracks;
   readonly gaps: readonly Gap[];
+  /** Padding sides that aren't 0 (0016). */
+  readonly padding: readonly Band[];
   readonly transformed: boolean;
 }
 
@@ -363,9 +427,14 @@ export function measureContainer(el: Element): ContainerLayout | undefined {
     height: Math.max(0, clientH - pt - px(s.paddingBottom)),
   };
   const clipped = s.overflowX !== 'visible' || s.overflowY !== 'visible';
-  const clip: Rect | undefined = clipped
-    ? { left: border.left + bl, top: border.top + bt, width: clientW, height: clientH }
-    : undefined;
+  const paddingBox: Rect = {
+    left: border.left + bl,
+    top: border.top + bt,
+    width: clientW,
+    height: clientH,
+  };
+  const clip: Rect | undefined = clipped ? paddingBox : undefined;
+  const padding = paddingBands(paddingBox, pt, px(s.paddingRight), px(s.paddingBottom), pl);
   const transformed = isTransformed(el);
   const gaps = pairGaps(layoutChildren(el).map((c) => toRect(c.getBoundingClientRect())));
 
@@ -385,5 +454,5 @@ export function measureContainer(el: Element): ContainerLayout | undefined {
     columns = axis(s.gridTemplateColumns, px(s.columnGap), true);
     rows = axis(s.gridTemplateRows, px(s.rowGap), false);
   }
-  return { kind, border, content, clip, columns, rows, gaps, transformed };
+  return { kind, border, content, clip, columns, rows, gaps, padding, transformed };
 }

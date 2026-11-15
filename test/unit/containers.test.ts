@@ -5,6 +5,7 @@ import {
   type Gap,
   gapAudit,
   normalizeAlign,
+  paddingBands,
   pairGaps,
   parseTrackList,
   placeTracks,
@@ -173,6 +174,17 @@ describe('5. labels', () => {
       'div.a 2',
       'div.a 3',
       'ul 2',
+    ]);
+  });
+});
+
+describe('6. padding bands (0016)', () => {
+  it('top and bottom span the width; left and right fill between them; 0 sides are skipped', () => {
+    const bands = paddingBands({ left: 10, top: 20, width: 100, height: 60 }, 8, 4, 0, 12);
+    expect(bands).toEqual([
+      { side: 'top', size: 8, left: 10, top: 20, width: 100, height: 8 },
+      { side: 'right', size: 4, left: 106, top: 28, width: 4, height: 52 },
+      { side: 'left', size: 12, left: 10, top: 28, width: 12, height: 52 },
     ]);
   });
 });

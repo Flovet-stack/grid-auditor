@@ -175,9 +175,9 @@ It matches Figma's Layout guide panel. See the screenshots in [references/figma-
 
 - **Header:** a disclosure button, `Rendered`, with a muted count once the page has been scanned (`3 grids, 12 flex`), and a Pick button (crosshair icon).
 - **Collapsed by default.** The page is only scanned while the section is open.
-- **Rows:** one 32 px row per container, grid containers first: a type icon, the label (`div.cards`) with the gap audit in muted text, and an eye. A **Show flex** button adds the flex containers.
+- **Rows:** a tree of containers (0016), like Figma's layers panel: indented 16 px per level under the nearest listed container that holds it, with a chevron on parents. Each 32 px row has a type icon, the label (`div.cards`) with the gap audit in muted text, and an eye. A **Show flex** button adds the flex containers.
 - **Hover or focus a row:** a solid outline and name tag around that element on the page.
-- **Marks:** dashed blue-violet (`#6e56cf`) track outlines and content box, hatched gaps, a name tag at the top-left. Track sizes appear only on hover, as a value pill.
+- **Marks:** dashed blue-violet (`#6e56cf`) track outlines and content box, and a name tag at the top-left. Gaps are shaded pink (`#e90c7a`, the primary blue's hue mirrored) and padding primary blue (`#0c8ce9`), both with an even 6 px diagonal tile and a value box in the same colour with white text (0016). Track sizes appear only on hover, as a value pill.
 
 Why the panel floats here when UI3 docked its panels: Figma docked them because they covered the canvas. We are layered over someone else's app and can't take space away from it, so the panel floats and collapses to the toolbar instead. This is Figma's "Minimize UI" pattern, used as our default.
 

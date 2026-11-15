@@ -319,3 +319,106 @@ describe('14. accessibility', () => {
     expect(shadow().activeElement).toBe(eyeFor('div.cards'));
   });
 });
+
+describe('15. marks (0016)', () => {
+  const hsl = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16) / 255) as [
+      number,
+      number,
+      number,
+    ];
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    const d = max - min;
+    const sat = d / (1 - Math.abs(2 * l - 1));
+    const h =
+      max === r
+        ? 60 * (((g - b) / d) % 6)
+        : max === g
+          ? 60 * ((b - r) / d + 2)
+          : 60 * ((r - g) / d + 4);
+    return { h: (h + 360) % 360, s: sat, l };
+  };
+
+  it('the gap pink keeps the primary blue saturation and lightness, hue mirrored', async () => {
+    const { GAP_COLOR, PADDING_COLOR } = await import('../../src/overlay/rendered');
+    const pink = hsl(GAP_COLOR);
+    const blue = hsl(PADDING_COLOR);
+    expect(Math.abs(pink.s - blue.s)).toBeLessThan(0.01);
+    expect(Math.abs(pink.l - blue.l)).toBeLessThan(0.01);
+    expect(Math.round(blue.h)).toBe(205);
+    expect(Math.round(pink.h)).toBe(330);
+  });
+
+  it('shades padding blue and gaps pink with an even 6 px tile, each with a value box', async () => {
+    await open();
+    await showRow('div.cards');
+    const pads = qa('.rmarks .rpad');
+    expect(pads).toHaveLength(4);
+    const gapStyle = getComputedStyle(q('.rmarks .rgap'));
+    expect(gapStyle.backgroundSize).toBe('6px 6px');
+    expect(gapStyle.backgroundImage).toContain(encodeURIComponent('#e90c7a'));
+    expect(getComputedStyle(pads[0] as HTMLElement).backgroundImage).toContain(
+      encodeURIComponent('#0c8ce9'),
+    );
+    const padVals = qa('.rmarks .rval.pad');
+    expect(padVals.map((v) => v.textContent)).toEqual(['24', '24', '24', '24']);
+    expect(getComputedStyle(padVals[0] as HTMLElement).backgroundColor).toBe('rgb(12, 140, 233)');
+    const gapVals = qa('.rmarks .rval.gap');
+    expect(new Set(gapVals.map((v) => v.textContent))).toEqual(new Set(['16']));
+    expect(getComputedStyle(gapVals[0] as HTMLElement).backgroundColor).toBe('rgb(233, 12, 122)');
+    expect(getComputedStyle(gapVals[0] as HTMLElement).color).toBe('rgb(255, 255, 255)');
+  });
+});
+
+describe('16. container tree (0016)', () => {
+  const NESTED = `
+    <div class="page" style="display:grid; padding:8px">
+      <div class="row" style="display:flex; gap:8px">
+        <div class="inner" style="display:grid; grid-template-columns:50px 50px; gap:4px">
+          <i style="height:10px"></i><i></i>
+        </div>
+        <b style="width:20px;height:10px"></b>
+      </div>
+      <div class="side" style="display:grid"><i style="height:10px"></i></div>
+    </div>`;
+  const depths = () => qa('.rrow').map((r) => `${r.getAttribute('aria-label')}:${r.dataset.depth}`);
+
+  it('nests containers under the nearest listed container, flex hidden or shown', async () => {
+    fixture.innerHTML = NESTED;
+    await open();
+    expect(depths()).toEqual(['div.page:0', 'div.inner:1', 'div.side:1']);
+    await userEvent.click(q('[data-key="show-flex"]'));
+    expect(depths()).toEqual(['div.page:0', 'div.row:1', 'div.inner:2', 'div.side:1']);
+    expect(q('.rrow[data-depth="2"]').style.paddingLeft).toBe('32px');
+  });
+
+  it('collapses and expands a parent; Pick opens the branch it chooses', async () => {
+    fixture.innerHTML = NESTED;
+    await open();
+    const twisty = q('[data-key="r0-twisty"]');
+    expect(twisty.getAttribute('aria-expanded')).toBe('true');
+    expect(q('[data-key="r1-twisty"]')).toBeNull(); // div.inner has no listed children
+    await userEvent.click(twisty);
+    expect(depths()).toEqual(['div.page:0']);
+    expect(q('[data-key="r0-twisty"]').getAttribute('aria-expanded')).toBe('false');
+    expect(shadow().activeElement).toBe(q('[data-key="r0-twisty"]'));
+
+    await userEvent.click(q('[data-key="pick"]'));
+    const cell = fixture.querySelector('.inner > i') as Element;
+    const r = cell.getBoundingClientRect();
+    q('.pick').dispatchEvent(
+      new MouseEvent('click', {
+        clientX: r.left + 2,
+        clientY: r.top + 2,
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+      }),
+    );
+    await frames();
+    expect(depths()).toEqual(['div.page:0', 'div.inner:1', 'div.side:1']);
+    expect(eyeFor('div.inner').getAttribute('aria-pressed')).toBe('true');
+  });
+});

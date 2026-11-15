@@ -64,10 +64,11 @@ Press **Ctrl+Shift+G** (**Cmd+Shift+G** on Mac) to open the panel. It shows the 
 
 ### Rendered grid
 
-The **Rendered** section, below Layout guide, shows the grid the page actually laid out. Open it to list the page's grid containers (flex containers are behind **Show flex**), then turn on a container's eye to draw it:
+The **Rendered** section, below Layout guide, shows the grid the page actually laid out. Open it to list the page's grid containers as a tree that follows the page structure, like Figma's layers panel (flex containers are behind **Show flex**; chevrons collapse a branch), then turn on a container's eye to draw it:
 
 - **Grid containers:** each real column and row track as a dashed outline, from the browser's own computed sizes.
-- **Gaps:** hatched, measured between neighbouring children, so wrapped flex rows work too.
+- **Gaps:** shaded pink, measured between neighbouring children, so wrapped flex rows work too. Each shows its size in a small pink box.
+- **Padding:** shaded in blue, with its size in a small blue box. Sides of 0 aren't drawn.
 - **Content box:** a dashed outline, with the container's name (`div.cards`) as a tag.
 - **Gap audit:** each row reads, for example, `gaps 24 ×5`, or `gaps 16 ×3, 24 ×1 · inconsistent` when the spacing isn't even.
 - **Track sizes:** hover a track to see its number and size, for example `2 · 240 px`.

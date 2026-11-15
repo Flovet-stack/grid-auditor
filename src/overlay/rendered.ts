@@ -9,6 +9,7 @@ import {
   containerAt,
   type FoundContainer,
   gapAudit,
+  snapValue,
   layoutChildren,
   measureContainer,
   pairGaps,
@@ -16,15 +17,37 @@ import {
   scanContainers,
 } from './containers';
 
-/** Blue-violet from 0005; 3:1 or better on white and on #121212. */
-export const RENDERED_STYLES = `
-.rendered { position: absolute; inset: 0; --ga-rendered: #6e56cf; }
+/** Gap pink, derived from the primary blue (0016): same saturation and lightness, hue mirrored 205° → 330°. */
+export const GAP_COLOR = '#e90c7a';
+/** Padding: the primary blue (0014, 0016). */
+export const PADDING_COLOR = '#0c8ce9';
+
+/**
+ * Even hatching (0016): a 6 × 6 px tile with one diagonal line, so lines sit about 4.2 px
+ * apart at any size. A whole-pixel tile can't alias into denser bands the way a 1 px
+ * gradient stop does.
+ */
+export const hatch = (color: string): string =>
+  `url("data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='6' height='6'><path d='M-1 1l2-2M0 6l6-6M5 7l2-2' stroke='${color}' stroke-width='1'/></svg>`,
+  )}") repeat 0 0 / 6px 6px`;
+
+/** Blue-violet tracks from 0005 (3:1 or better on white and on #121212); 0016 shades. */
+export const RENDERED_STYLES: string = `
+.rendered { position: absolute; inset: 0; --ga-rendered: #6e56cf; --ga-gap: ${GAP_COLOR};
+  --ga-pad: ${PADDING_COLOR}; }
 .rendered [hidden] { display: none !important; }
 .rmarks, .rhl { position: absolute; inset: 0; }
-.rbox, .rtrack, .rgap, .rclip, .rout { position: absolute; box-sizing: border-box; }
+.rbox, .rtrack, .rgap, .rpad, .rclip, .rout { position: absolute; box-sizing: border-box; }
 .rbox, .rtrack { border: 1px dashed var(--ga-rendered); }
 .rclip { overflow: hidden; }
-.rgap { background: repeating-linear-gradient(45deg, var(--ga-rendered) 0 1px, transparent 1px 5px); }
+.rgap { background: ${hatch(GAP_COLOR)}; }
+.rpad { background: ${hatch(PADDING_COLOR)}; }
+.rval { position: absolute; transform: translate(-50%, -50%); padding: 0 3px; border-radius: 2px;
+  color: #fff; font: 600 10px/14px ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rval.gap { background: var(--ga-gap); }
+.rval.pad { background: var(--ga-pad); }
 .rout { border: 1px solid var(--ga-rendered); }
 .rtag, .rpill { position: absolute; white-space: nowrap; padding: 0 4px; border-radius: 3px;
   background: var(--ga-rendered); color: #fff; font: 600 10px/16px ui-monospace, SFMono-Regular, Menlo,
@@ -143,6 +166,14 @@ export function createRendered(
     e.style.width = `${r.width}px`;
     e.style.height = `${r.height}px`;
   };
+  /** A value box centred on a shaded area (0016): bare number, rounded per 0006. */
+  const value = (kind: 'gap' | 'pad', r: Rect, size: number, origin: Rect | undefined) => {
+    const v = el(`rval ${kind}`);
+    v.textContent = String(snapValue(size));
+    v.style.left = `${r.left + r.width / 2 - (origin?.left ?? 0)}px`;
+    v.style.top = `${r.top + r.height / 2 - (origin?.top ?? 0)}px`;
+    return v;
+  };
   const tag = (text: string, border: Rect): HTMLElement => {
     const t = el('rtag');
     t.textContent = text;
@@ -201,10 +232,15 @@ export function createRendered(
       // Columns first, so a pointer over both a column and a row reports the column.
       drawAxis(layout.columns, true, layout, into, origin);
       drawAxis(layout.rows, false, layout, into, origin);
+      for (const p of layout.padding) {
+        const d = el('rpad');
+        place(d, p, origin);
+        into.append(d, value('pad', p, p.size, origin));
+      }
       for (const g of layout.gaps) {
         const d = el('rgap');
         place(d, g, origin);
-        into.append(d);
+        into.append(d, value('gap', g, g.size, origin));
       }
       let text = labelOf(target);
       if (layout.transformed) text += ' · transformed: tracks unavailable';

@@ -188,8 +188,12 @@ kbd { font: 400 11px var(--ga-font); color: var(--ga-muted); border: 1px solid v
   text-overflow: ellipsis; white-space: nowrap; }
 .rrow { display: flex; align-items: center; gap: 2px; height: 32px; padding: 0 8px 0 0; }
 .rrow:hover, .rrow:focus-within { background: var(--ga-secondary); }
-.rrow .ticon { display: flex; align-items: center; justify-content: center; width: 32px;
-  flex: 0 0 32px; color: var(--ga-muted); }
+.rrow .twisty { display: flex; align-items: center; justify-content: center; flex: 0 0 20px;
+  width: 20px; margin-left: 4px; }
+.rrow .twisty button { min-width: 20px; width: 20px; height: 20px; color: var(--ga-muted); }
+.rrow .twisty button[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.rrow .ticon { display: flex; align-items: center; justify-content: center; width: 20px;
+  flex: 0 0 20px; margin-right: 4px; color: var(--ga-muted); }
 .rrow .rlabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rrow .rlabel small { margin-left: 6px; color: var(--ga-muted); font: inherit; }
 .panel .pickbtn[aria-pressed="true"] { background: var(--ga-active); color: var(--ga-text); }
@@ -1134,18 +1138,73 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
     const flex = items.length - grids;
     return `${grids} ${grids === 1 ? 'grid' : 'grids'}, ${flex} flex`;
   };
-  /** Rows in display order: grid containers, then flex ones when "Show flex" is on. */
-  const visibleItems = (): RenderedItem[] => {
-    const items = store.rendered().items();
-    return [
-      ...items.filter((i) => i.kind === 'grid'),
-      ...(showFlex ? items.filter((i) => i.kind === 'flex') : []),
-    ];
+  /** Parents whose children are hidden in the tree (0016). */
+  const collapsed = new WeakSet<Element>();
+  interface TreeRow {
+    readonly item: RenderedItem;
+    readonly depth: number;
+    readonly parent: boolean;
+  }
+  /**
+   * The container tree (0016), in document order: each listed container sits under the
+   * nearest listed container that contains it. Flex containers are listed only with Show flex.
+   * Children of a collapsed parent are left out.
+   */
+  const treeRows = (): TreeRow[] => {
+    const items = store
+      .rendered()
+      .items()
+      .filter((i) => showFlex || i.kind === 'grid');
+    const rows: TreeRow[] = [];
+    const stack: RenderedItem[] = [];
+    let hiddenUnder: Element | undefined;
+    items.forEach((item, i) => {
+      while (stack.length && !stack[stack.length - 1]?.el.contains(item.el)) stack.pop();
+      if (hiddenUnder && !hiddenUnder.contains(item.el)) hiddenUnder = undefined;
+      const next = items[i + 1];
+      const parent = next !== undefined && item.el.contains(next.el);
+      if (!hiddenUnder) {
+        rows.push({ item, depth: stack.length, parent });
+        if (parent && collapsed.has(item.el)) hiddenUnder = item.el;
+      }
+      stack.push(item);
+    });
+    return rows;
   };
+  /** Rows in display order, as items. */
+  const visibleItems = (): RenderedItem[] => treeRows().map((r) => r.item);
 
-  const renderRenderedRow = (item: RenderedItem, j: number): HTMLElement => {
+  const renderRenderedRow = ({ item, depth, parent }: TreeRow, j: number): HTMLElement => {
     const r = store.rendered();
-    const row = el('div', { class: 'rrow', role: 'group', 'aria-label': item.label });
+    const row = el('div', {
+      class: 'rrow',
+      role: 'group',
+      'aria-label': item.label,
+      'data-depth': String(depth),
+    });
+    row.style.paddingLeft = `${depth * 16}px`;
+    const twisty = el('span', { class: 'twisty' });
+    if (parent) {
+      const open = !collapsed.has(item.el);
+      const btn = el('button', {
+        type: 'button',
+        'aria-expanded': String(open),
+        'aria-label': `${open ? 'Collapse' : 'Expand'} ${item.label}`,
+        title: open ? 'Collapse' : 'Expand',
+        'data-key': `r${j}-twisty`,
+      });
+      btn.innerHTML = icon('chevron');
+      btn.addEventListener(
+        'click',
+        () => {
+          if (collapsed.has(item.el)) collapsed.delete(item.el);
+          else collapsed.add(item.el);
+          renderRendered();
+        },
+        { signal },
+      );
+      twisty.append(btn);
+    }
     const ticon = el('span', { class: 'ticon' });
     ticon.innerHTML = icon(item.kind === 'grid' ? 'GRID' : 'flex');
     const audit = item.audit();
@@ -1167,7 +1226,7 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
     row.addEventListener('pointerleave', hide, { signal });
     row.addEventListener('focusin', show, { signal });
     row.addEventListener('focusout', hide, { signal });
-    row.append(ticon, label, eye);
+    row.append(twisty, ticon, label, eye);
     return row;
   };
 
@@ -1219,8 +1278,8 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
         parts.push(el('p', { class: 'empty' }, 'No grid or flex containers on this page.'));
       } else {
         const list = el('div', { class: 'list', role: 'group', 'aria-labelledby': 'ga-rendered' });
-        visibleItems().forEach((item, j) => {
-          list.append(renderRenderedRow(item, j));
+        treeRows().forEach((tr, j) => {
+          list.append(renderRenderedRow(tr, j));
         });
         parts.push(list);
         if (flexCount) {
@@ -1451,6 +1510,10 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
         .items()
         .find((i) => i.el === target);
       if (item?.kind === 'flex') showFlex = true;
+      // Open the branch that holds the picked container (0016).
+      for (const i of store.rendered().items()) {
+        if (i.el !== target && i.el.contains(target)) collapsed.delete(i.el);
+      }
       if (root.hidden) return;
       renderRendered();
       const j = visibleItems().findIndex((i) => i.el === target);
