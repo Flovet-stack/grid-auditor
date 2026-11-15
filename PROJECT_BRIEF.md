@@ -41,7 +41,6 @@ Tags: **[ref]** = a feature GuideFrame has (https://guide-frame.vercel.app/), wh
 3. Rendered grid overlay: draws the grid the page actually laid out (CSS Grid tracks and gaps, flex gaps, the container's content box) for a chosen container or the hovered one. **[ours]** **[research]**
 4. Expected vs rendered comparison: show either grid or both, each in its own colour, with deviations highlighted and their size in px. **[ours]**
 5. Container-scoped overlays: scope a grid to one element (such as a centred max-width wrapper) instead of the viewport. **[ref]**
-6. Baseline grid: horizontal rhythm lines. **[ours]**
 
 **Rulers and guides**
 
@@ -81,6 +80,8 @@ Tags: **[ref]** = a feature GuideFrame has (https://guide-frame.vercel.app/), wh
 28. Export and import guide sets as JSON so they can be shared with the team. **[ours]**
 29. Breakpoint sweep: step through each breakpoint and collect the deviations from all of them. **[ours]**
 
+- Baseline grid (formerly must-have 6): horizontal rhythm lines, and possibly a check that flags text sitting off the rhythm. A Rows grid already draws the lines. It moves up only if user interviews show demand (2026-11-15). **[ours]**
+
 ### Can wait
 
 30. Import layout grids straight from a Figma file through the Figma REST API (needs a token). **[ours]** **[research]**
@@ -112,6 +113,8 @@ References are for inspiration only: never copy their logos, names, icons, illus
 
 Product-wide decisions only. Every decision, with its research, is logged in `docs/decisions/`.
 
+- 2026-11-15: Grid features come before the geometry inspector. The rendered grid overlay (#3) is built first: containers are chosen from a panel list or a Pick button, gaps are measured between children, and a gap audit is shown (0015). The baseline grid moves to Nice to have until user interviews show demand.
+- 2026-11-15: The control panel matches Figma's Layout guide section and dark UI; there is no Reset to code button (0014).
 - 2026-11-11: The control panel's grid settings come first, so users can enter and adjust grids on the page; then persisting panel edits, then 0011's features (0012).
 - 2026-11-11: Build order after spec 02: geometry inspector, page comparison (element edges vs the expected page grid per breakpoint), then a DevTools-style container layout overlay; the release waits until after them. Container comparison comes later (0011).
 - 2026-11-11: Product renamed from "Figma Grid Audit" to **Grid Auditor** (`grid-auditor`): Figma's trademark rules forbid "Figma" in a tool's name. We say "works with Figma layout grids" and "not affiliated with Figma" (0008).
