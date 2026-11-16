@@ -4,7 +4,7 @@
 - **Proposed:** 2026-11-16 by the product team (roles: Product, UX, UI, Tech Lead, Frontend), from Flovet's direction in chat after testing spec 06 in the playground
 - **Approved:** 2026-11-16 by Flovet
 - **Supersedes:** part of 0018 §4: which element the inspector draws (only the nearest grid or flex container)
-- **Specs:** none yet
+- **Specs:** specs/10-inspect-elements-with-children.md
 
 ## Context
 
