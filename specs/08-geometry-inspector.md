@@ -1,6 +1,6 @@
 # 08: Geometry inspector (hover)
 
-Status: In progress
+Status: Done (https://github.com/Flovet-stack/grid-auditor/pull/11)
 
 Brief: must-have #17 (geometry inspection, Shift+M). It builds on spec 07.
 

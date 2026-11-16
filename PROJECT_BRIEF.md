@@ -17,7 +17,7 @@ This brief describes the whole product. It does not change when a phase or sprin
 
 - **Expected grid:** the layout grid the design calls for, from the user's config (Figma's values).
 - **Rendered grid:** the grid read from the live DOM: CSS Grid tracks and gaps, flex rows and their gaps, and the content box of the chosen container. The page's layout drawn as columns, not a configured overlay.
-- **Deviation:** an expected line and the nearest rendered edge that differ by more than a tolerance (default 1 px).
+- **Deviation:** an expected line and the nearest rendered edge that differ by more than a tolerance (default 0.5 px, decision 0019).
 
 ## How scope is delivered (rules for AI agents)
 
@@ -113,6 +113,7 @@ References are for inspiration only: never copy their logos, names, icons, illus
 
 Product-wide decisions only. Every decision, with its research, is logged in `docs/decisions/`.
 
+- 2026-11-16: Expected vs rendered (#4) compares the containers that are drawn (eyes on, or hovered in the inspector) with the visible expected Columns grids: start edges with start edges, end edges with end edges. Deviations are orange (`#e5590b`, replacing magenta) with a signed px label, shown from a Compare section (off by default). The default tolerance is 0.5 px, checked before rounding (0019).
 - 2026-11-15: The first geometry inspector (#17) is Shift+M: it pauses page clicks and draws the rendered grid of the hovered container only, with a pill that says Esc exits. Eye state in the Rendered section is kept, and the section itself always stays. New option `shortcuts.inspect` (0018).
 
 - 2026-11-15: Grid features come before the geometry inspector. The rendered grid overlay (#3) is built first: containers are chosen from a panel list or a Pick button, gaps are measured between children, and a gap audit is shown (0015). The baseline grid moves to Nice to have until user interviews show demand.
