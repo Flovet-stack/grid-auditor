@@ -11,8 +11,17 @@ import {
   normalizeBreakpoints,
   pickBreakpoint,
 } from '../engine';
+import { compareStatus, expectedEdges, TOLERANCE_DEFAULT } from './compare';
 import { createPanel, PANEL_STYLES } from './panel';
-import { fingerprint, type Position, type Stored, safeStorage, snippet, toInputs } from './persist';
+import {
+  type CompareSettings,
+  fingerprint,
+  type Position,
+  type Stored,
+  safeStorage,
+  snippet,
+  toInputs,
+} from './persist';
 import { renderBreakpoint, STYLES } from './render';
 import { createInspectPill, createRendered, RENDERED_STYLES, setInspectPill } from './rendered';
 import {
@@ -148,6 +157,9 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
   let edited = false;
   let setAside: { fingerprint: string; breakpoints: readonly Breakpoint[] } | undefined;
   let position: Position | undefined;
+  /** Compare section preferences (0019 §5): saved, but never reset by code calls or Reset. */
+  const COMPARE_DEFAULT: CompareSettings = { show: false, tolerance: TOLERANCE_DEFAULT };
+  let compare: CompareSettings = COMPARE_DEFAULT;
   let warnedStorage = false;
   const storage = safeStorage(
     () => window.localStorage,
@@ -163,10 +175,12 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
     edited = false;
     setAside = undefined;
     position = undefined;
+    compare = COMPARE_DEFAULT;
     if (!persist) return;
     const parsed = storage.read();
     if (!parsed) return;
     position = parsed.stored.panel;
+    compare = parsed.stored.compare ?? COMPARE_DEFAULT;
     if (!parsed.breakpoints) return;
     if (parsed.stored.fingerprint === codeFingerprint) {
       state.breakpoints = parsed.breakpoints;
@@ -184,11 +198,18 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
       : setAside
         ? { fingerprint: setAside.fingerprint, breakpoints: toInputs(setAside.breakpoints) }
         : { fingerprint: codeFingerprint };
-    if (!('breakpoints' in base) && !position) {
+    const keepCompare =
+      compare.show !== COMPARE_DEFAULT.show || compare.tolerance !== COMPARE_DEFAULT.tolerance;
+    if (!('breakpoints' in base) && !position && !keepCompare) {
       storage.clear();
       return;
     }
-    const entry: Stored = { version: 1, ...base, ...(position ? { panel: position } : {}) };
+    const entry: Stored = {
+      version: 1,
+      ...base,
+      ...(position ? { panel: position } : {}),
+      ...(keepCompare ? { compare } : {}),
+    };
     storage.write(entry);
   };
   const save = (): void => {
@@ -247,14 +268,29 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
         panel.syncRendered();
       },
       onPick: (el) => panel.picked(el),
+      expectedEdges: () => expectedEdges(state.breakpoints[activeOf()], measurePage(document)),
+      onCompare: () => panel.syncCompare(),
     },
     signal,
   );
+  rendered.setCompare(compare.show, compare.tolerance);
+  const statusText = (): string | undefined => {
+    const stats = rendered.compareStats();
+    return stats && compareStatus(stats, compare.tolerance, state.inspect !== false);
+  };
 
   const panel = createPanel(
     document,
     {
       rendered: () => rendered,
+      compare: () => compare,
+      setCompare(next) {
+        if (destroyed) return;
+        compare = next;
+        rendered.setCompare(next.show, next.tolerance);
+        save();
+      },
+      compareStatus: statusText,
       breakpoints: () => state.breakpoints,
       activeIndex: () => activeIndex,
       setGrids(index, grids): readonly GridError[] {
@@ -331,6 +367,8 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
         panel.sync('resize');
       }
       const warnings = renderBreakpoint(layer, bp, measurePage(document));
+      // The expected edges may have moved: compare again (spec 06).
+      rendered.refresh();
       const key = JSON.stringify(warnings);
       if (key !== lastWarnings) {
         lastWarnings = key;
@@ -440,6 +478,7 @@ export function createGridOverlay(options: GridOverlayOptions = {}): GridOverlay
       state.toggle = next.shortcuts?.toggle ?? 'Shift+G';
       state.panel = next.shortcuts?.panel ?? 'Mod+Shift+G';
       state.inspect = next.shortcuts?.inspect ?? 'Shift+M';
+      panel.syncCompare();
       if (next.visible !== undefined) state.visible = next.visible;
       activeIndex = activeOf();
       schedule(true);

@@ -1,6 +1,6 @@
 # 06: Expected vs rendered comparison
 
-Status: Ready
+Status: In progress
 
 Brief: must-have #4 (expected vs rendered comparison). It builds on specs 02, 04, 07 and 08.
 
@@ -73,7 +73,7 @@ Implements 0019. Uses:
 - [ ] **What's saved:** the switch and the tolerance go in the `grid-auditor:v1` entry as `compare: { show: boolean, tolerance: number }`.
   - Both are read back through `parseStored`, so a bad or missing value falls back to the defaults.
   - They're not part of the fingerprint, and they don't set the `Edited` badge.
-- [ ] **Reset to code** doesn't change them, and neither do `update()` or `setBreakpoints()`.
+- [ ] **Code calls:** `update()` and `setBreakpoints()` don't change them, and neither does the store's reset.
 - [ ] **`persist: false`:** nothing is read or written, and each load starts from the defaults.
 
 ### Staying in sync (0019 §6)
@@ -91,7 +91,7 @@ Implements 0019. Uses:
 
 1. **Matching:**
    - Left edges match left edges, and right edges match right edges.
-   - A rendered left edge 13 px to the right of a column's left edge, with a 24 px gutter, gives `+13 px`, not `−11 px`.
+   - With 24 px gutters, a rendered right edge 13 px past a column's end gives `+13 px`, not `−11 px` from the next column's left edge. A left edge 13 px early gives `−13 px`, not `+11 px`.
 2. **Tolerance:**
    - At 0.5 px, `d = 0.5` is no deviation.
    - `d = 0.6` gives `+1 px`, and `d = −0.6` gives `−1 px` with U+2212.
@@ -140,7 +140,7 @@ Implements 0019. Uses:
 9. **Shift+G** hides the deviation marks, and showing the grid again brings them back.
 10. **Saving:**
     - After the switch is on and the tolerance is 2, a new overlay on the same storage starts with both.
-    - Reset to code leaves them as they are.
+    - `setBreakpoints()` and `update()` leave them as they are.
     - `persist: false` writes nothing.
 11. **Colour:** the edge line's computed background is `rgb(229, 89, 11)`.
 12. **Accessibility:** axe reports no violations with the panel open, the Compare section showing and deviation marks on the page.

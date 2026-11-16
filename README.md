@@ -84,6 +84,18 @@ The inspector doesn't change which containers you turned on in the Rendered sect
 
 - `shortcuts: { inspect: false }` turns the shortcut off.
 
+### Compare
+
+The **Compare** section checks the rendered grid against your Figma columns. Turn on **Show deviations**, then turn on a container's eye in the Rendered section, or press Shift+M and hover one.
+
+- **What's checked:** each column edge of that container is compared with the nearest column edge of the same side in the visible Columns grids.
+  - For a grid container, these are the track edges.
+  - For a flex container, they're the left and right edges of each item.
+- **What's marked:** edges more than the **Tolerance** away (0.5 px by default) get an orange line, a bar back to the Figma edge, and a signed label such as `+3 px`. Edges that line up get nothing.
+- **Status line:** shows how many deviations there are, or what to turn on first.
+
+The switch and the tolerance are saved with the panel. Rows, square grids and containers with a transform or `subgrid` columns aren't compared.
+
 ## Development
 
 Requires Node 24 and pnpm 11.

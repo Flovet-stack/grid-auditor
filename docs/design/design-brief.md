@@ -94,14 +94,14 @@ Wherever Figma documents a behaviour, we match it. Where Figma has no equivalent
 
 ### 9.1 Colour: marks on the page
 
-| Mark                         | Look                                                                                                                   | Why                                                                             |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| **Expected grid**            | Filled columns and rows, red at 10% opacity (Figma's default layout-guide colour and opacity), with a 1 px edge at 25% | Users read it as "the Figma grid" instantly                                     |
-| **Rendered grid**            | No fill. **Dashed** 1 px outlines of each track, with gap areas hatched, in a cool blue-violet                         | Outline vs fill tells the two apart even in grayscale or for colour-blind users |
-| **Deviation**                | A solid 2 px magenta bar between the expected line and the rendered edge, with a px label (`+3 px`)                    | A third shape and a third colour; the label carries the meaning                 |
-| **Ruler guides**             | Solid 1 px cyan. When selected: 2 px, with a position label                                                            | Distinct from all three grid marks                                              |
-| **Measurement and snapping** | Red lines with red value pills                                                                                         | Figma uses red for snapping and measurement lines                               |
-| **Hover outline**            | 1 px blue box with a small dimension label below it (`240 × 64`)                                                       | Figma shows a layer's dimensions in blue under its bounding box                 |
+| Mark                         | Look                                                                                                                                      | Why                                                                                   |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **Expected grid**            | Filled columns and rows, red at 10% opacity (Figma's default layout-guide colour and opacity), with a 1 px edge at 25%                    | Users read it as "the Figma grid" instantly                                           |
+| **Rendered grid**            | No fill. **Dashed** 1 px outlines of each track, with gap areas hatched, in a cool blue-violet                                            | Outline vs fill tells the two apart even in grayscale or for colour-blind users       |
+| **Deviation**                | Orange `#e5590b` (0019): a solid 2 px line on the rendered edge, a capped 2 px bar to the expected edge, and a signed value box (`+3 px`) | A third shape and a colour used for nothing else; the sign and unit carry the meaning |
+| **Ruler guides**             | Solid 1 px cyan. When selected: 2 px, with a position label                                                                               | Distinct from all three grid marks                                                    |
+| **Measurement and snapping** | Red lines with red value pills                                                                                                            | Figma uses red for snapping and measurement lines                                     |
+| **Hover outline**            | 1 px blue box with a small dimension label below it (`240 × 64`)                                                                          | Figma shows a layer's dimensions in blue under its bounding box                       |
 
 All mark colours are CSS custom properties, and users can set them per grid in the config, the same way Figma sets colour and opacity per guide. Exact hex values are chosen in the spec and checked for 3:1 contrast on white, #FFFFFF, and dark, #121212, test pages.
 
@@ -143,12 +143,12 @@ Close to none. 120 ms opacity fades when the panel opens or closes, with no moti
 
 ## 10. Layout: the chrome
 
-| Element              | Placement                                                                        | Behaviour                                                                                                                                                                                                                                                                                                        |
-| -------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Rulers**           | Top and left edges, 20 px, with a corner square that shows the units             | Ticks in document space that follow the scroll. When an element is selected, its range is highlighted on the ruler (Figma: rulers highlight the selected frame's coordinates)                                                                                                                                    |
-| **Toolbar**          | Floating at the bottom centre (UI3 puts toolbars at the bottom in every product) | One pill: Grid · Rulers · Guides · Inspector · Lock, each with its state and shortcut on hover, plus a button that opens the panel. Can be dragged to the corners                                                                                                                                                |
-| **Control panel**    | Floating at the top right, 260 px wide, can be moved and collapsed               | Sections in the same order as Figma's right sidebar: **Layout guides** (one row per grid: show/hide eye, type, count, gutter, margin/offset, colour, opacity) → **Compare** (show expected / rendered / both, tolerance) → **Snapping** (elements, columns, guides) → **Guides** (clear, export) → **Shortcuts** |
-| **Breakpoint badge** | Top of the panel                                                                 | Shows only the active breakpoint, for example `Tablet`; grid details are in the rows (0014 §8)                                                                                                                                                                                                                   |
+| Element              | Placement                                                                        | Behaviour                                                                                                                                                                                                                                                                                                      |
+| -------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Rulers**           | Top and left edges, 20 px, with a corner square that shows the units             | Ticks in document space that follow the scroll. When an element is selected, its range is highlighted on the ruler (Figma: rulers highlight the selected frame's coordinates)                                                                                                                                  |
+| **Toolbar**          | Floating at the bottom centre (UI3 puts toolbars at the bottom in every product) | One pill: Grid · Rulers · Guides · Inspector · Lock, each with its state and shortcut on hover, plus a button that opens the panel. Can be dragged to the corners                                                                                                                                              |
+| **Control panel**    | Floating at the top right, 260 px wide, can be moved and collapsed               | Sections in the same order as Figma's right sidebar: **Layout guides** (one row per grid: show/hide eye, type, count, gutter, margin/offset, colour, opacity) → **Compare** (Show deviations, tolerance, status; 0019) → **Snapping** (elements, columns, guides) → **Guides** (clear, export) → **Shortcuts** |
+| **Breakpoint badge** | Top of the panel                                                                 | Shows only the active breakpoint, for example `Tablet`; grid details are in the rows (0014 §8)                                                                                                                                                                                                                 |
 
 ### 10.1 Layout guide section (0014)
 
@@ -185,6 +185,13 @@ It matches Figma's Layout guide panel. See the screenshots in [references/figma-
 - **Pill:** bottom centre, 16 px up, on the panel's dark grey with white text: `Geometry inspector on · Page interactions paused · Press Esc to exit`, with `Esc` as a keycap. It's a status region, and the pointer passes through it.
 - **Paused page:** a crosshair over the whole page; clicks don't reach it. The panel stays usable above it.
 - **Eye state** in the Rendered section is kept: those marks are hidden while inspecting and return on exit. The Rendered section never changes.
+
+### 10.4 Compare (0019, spec 06)
+
+- **Place:** between Layout guide and Rendered, always expanded.
+- **Row:** a **Show deviations** text toggle (off by default, styled like Show flex), then **Tolerance** with a px field (default 0.5, 0.5–20 in 0.5 steps; arrows step 0.5, Shift+arrows 5).
+- **Status line:** muted text under the row while the switch is on: the deviation count (`3 deviations in 2 containers`), `No deviations over 0.5 px`, or what to turn on first.
+- **Marks:** only on drawn containers (eyes on, or the inspector's hovered one), above every other rendered mark: an orange line on each deviating edge, a capped bar to the expected edge 4 px below the content top, and a signed value box under it.
 
 Why the panel floats here when UI3 docked its panels: Figma docked them because they covered the canvas. We are layered over someone else's app and can't take space away from it, so the panel floats and collapses to the toolbar instead. This is Figma's "Minimize UI" pattern, used as our default.
 

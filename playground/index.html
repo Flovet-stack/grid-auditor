@@ -34,6 +34,46 @@
         <div class="box">Card</div>
       </div>
     </section>
+    <!-- Spec 06 fixture: expected vs rendered. One grid lines up with the layout guide, one is 3 px off. -->
+    <section class="compare-demo" aria-labelledby="compare-title">
+      <div class="cmp-head">
+        <h2 id="compare-title">Compare</h2>
+        <p class="hint">
+        Turn on <strong>Show deviations</strong> in the panel's Compare section, then the eye of
+        each grid below in Rendered, or press Shift+M and hover them. The first grid uses the
+        layout guide's margins and gutters, so it shows nothing. The second is shifted 3 px to
+        the right, so every column edge reads +3 px.
+        </p>
+      </div>
+      <div class="cmp-grid cmp-aligned">
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+      </div>
+      <div class="cmp-grid cmp-shifted">
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell"></div>
+      </div>
+    </section>
     <!-- Interactive fixtures: check that Pick and the inspector (Shift+M) pause these, and that they work again after. -->
     <section class="play" aria-labelledby="play-title">
       <h2 id="play-title">Interactive</h2>

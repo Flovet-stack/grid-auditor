@@ -4,6 +4,14 @@
  * The geometry inspector (0018, spec 08) draws the hovered container instead of the shown set.
  */
 import {
+  type CompareStats,
+  type Deviation,
+  type Edges,
+  findDeviations,
+  formatDeviation,
+  renderedEdges,
+} from './compare';
+import {
   type AxisTracks,
   baseLabel,
   type ContainerLayout,
@@ -26,6 +34,8 @@ export const UI_FONT =
 export const GAP_COLOR = '#e90c7a';
 /** Padding: the primary blue (0014, 0016). */
 export const PADDING_COLOR = '#0c8ce9';
+/** Deviations (0019 §4): used for nothing else. 3.6:1 on white, 5.1:1 on #121212. */
+export const DEVIATION_COLOR = '#e5590b';
 
 /**
  * Even hatching (0016): a 6 × 6 px tile with one diagonal line, so lines sit about 4.2 px
@@ -40,7 +50,7 @@ export const hatch = (color: string): string =>
 /** Blue-violet tracks from 0005 (3:1 or better on white and on #121212); 0016 shades. */
 export const RENDERED_STYLES: string = `
 .rendered { position: absolute; inset: 0; --ga-rendered: #6e56cf; --ga-gap: ${GAP_COLOR};
-  --ga-pad: ${PADDING_COLOR}; }
+  --ga-pad: ${PADDING_COLOR}; --ga-dev: ${DEVIATION_COLOR}; }
 .rendered [hidden] { display: none !important; }
 .rmarks, .rhl { position: absolute; inset: 0; }
 .rbox, .rtrack, .rgap, .rpad, .rclip, .rout { position: absolute; box-sizing: border-box; }
@@ -53,6 +63,8 @@ export const RENDERED_STYLES: string = `
   font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rval.gap { background: var(--ga-gap); }
 .rval.pad { background: var(--ga-pad); }
+.rdline, .rdbar, .rdcap { position: absolute; background: var(--ga-dev); }
+.rval.dev { background: var(--ga-dev); transform: translate(-50%, 0); }
 .rout { border: 1px solid var(--ga-rendered); }
 .rtag, .rpill { position: absolute; white-space: nowrap; padding: 0 4px; border-radius: 3px;
   color: #fff; font: 600 10px/16px ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -125,6 +137,12 @@ export interface Rendered {
   stopInspect(): void;
   isInspecting(): boolean;
   setVisible(visible: boolean): void;
+  /** Expected vs rendered (0019, spec 06): `on` false draws and computes nothing. */
+  setCompare(on: boolean, tolerance: number): void;
+  /** The last comparison's counts, or `undefined` while it's off. */
+  compareStats(): CompareStats | undefined;
+  /** Draws again, for changes outside the rendered layer (expected grid, breakpoint). */
+  refresh(): void;
   destroy(): void;
 }
 
@@ -133,6 +151,10 @@ export interface RenderedEvents {
   onChange(): void;
   /** Pick chose `el` (already shown). */
   onPick(el: Element): void;
+  /** The expected Columns edges of the active breakpoint, in document px (spec 06). */
+  expectedEdges(): Edges;
+  /** The comparison's counts changed (spec 06). Not called on every frame. */
+  onCompare(): void;
 }
 
 const CAPTURED = [
@@ -182,6 +204,11 @@ export function createRendered(
   const shown = new Set<Element>();
   /** Shown tracks in viewport px, for the hover pill. */
   let hoverTracks: { rect: Rect; label: string }[] = [];
+  /** Expected vs rendered (spec 06). */
+  let comparing = false;
+  let tolerance = 0.5;
+  let stats: CompareStats | undefined;
+  let statsKey = '';
 
   // ----- scanning (section open only) -----
   const scan = (): void => {
@@ -242,6 +269,45 @@ export function createRendered(
     t.style.top = `${border.top >= 16 ? border.top - 16 : border.top}px`;
     return t;
   };
+  /**
+   * One container's deviation marks (0019 §4): a line on the rendered edge, a capped bar to the
+   * expected edge 4 px below the content top (below the name tag when the tag sits inside), and
+   * a signed value box under the bar.
+   */
+  const drawDeviations = (
+    devs: readonly Deviation[],
+    layout: ContainerLayout,
+    into: HTMLElement,
+    origin: Rect | undefined,
+  ): void => {
+    const ox = origin?.left ?? 0;
+    const oy = origin?.top ?? 0;
+    const c = layout.content;
+    // The name tag sits above the border box unless the box is within 16 px of the top (0017).
+    const tagBottom = layout.border.top >= 16 ? -Infinity : layout.border.top + 16;
+    const barY = Math.max(c.top + 4, tagBottom + 4);
+    const box = (cls: string, left: number, top: number, width: number, height: number) => {
+      const d = el(cls);
+      d.style.left = `${left - ox}px`;
+      d.style.top = `${top - oy}px`;
+      d.style.width = `${width}px`;
+      d.style.height = `${height}px`;
+      into.append(d);
+    };
+    for (const dev of devs) {
+      box('rdline', dev.rendered - 1, c.top, 2, c.height);
+      const from = Math.min(dev.expected, dev.rendered);
+      box('rdbar', from, barY - 1, Math.abs(dev.d), 2);
+      box('rdcap', dev.expected - 0.5, barY - 4, 1, 8);
+      box('rdcap', dev.rendered - 0.5, barY - 4, 1, 8);
+      const v = el('rval dev');
+      v.textContent = formatDeviation(dev.d);
+      v.style.left = `${from + Math.abs(dev.d) / 2 - ox}px`;
+      v.style.top = `${barY + 5 - oy}px`;
+      into.append(v);
+    }
+  };
+
   const drawAxis = (
     tracks: AxisTracks,
     x: boolean,
@@ -278,9 +344,24 @@ export function createRendered(
     if (inspectTarget && !inspectTarget.isConnected) setInspectTarget(undefined);
     // While inspecting, only the hovered container is drawn; `shown` is left untouched (0018 §5).
     const targets = inspecting ? (inspectTarget ? [inspectTarget] : []) : [...shown];
+    // Expected edges come in document px; marks live in viewport px (0007).
+    let expected: Edges | undefined;
+    if (comparing) {
+      const e = events.expectedEdges();
+      const sx = view.scrollX;
+      expected = { left: e.left.map((x) => x - sx), right: e.right.map((x) => x - sx) };
+    }
+    const hasExpected = !!expected && expected.left.length + expected.right.length > 0;
+    let drawn = 0;
+    let compared = 0;
+    let deviations = 0;
+    let withDeviations = 0;
+    // Deviation marks draw above every other mark, so they get their own groups, added last.
+    const devFrag = doc.createDocumentFragment();
     for (const target of targets) {
       const layout = measureContainer(target);
       if (!layout) continue;
+      drawn++;
       const group = el('rgroup');
       // Marks inside a scrolling container are clipped to its padding box.
       let into: HTMLElement = group;
@@ -315,8 +396,38 @@ export function createRendered(
       }
       group.append(tag(text, layout.border));
       frag.append(group);
+
+      const own = expected && hasExpected ? renderedEdges(layout) : undefined;
+      if (expected && own) {
+        compared++;
+        const devs = findDeviations(expected, own, tolerance);
+        if (devs.length) {
+          deviations += devs.length;
+          withDeviations++;
+          const dgroup = el('rgroup rdev');
+          let dinto: HTMLElement = dgroup;
+          if (layout.clip) {
+            dinto = el('rclip');
+            place(dinto, layout.clip, undefined);
+            dgroup.append(dinto);
+          }
+          drawDeviations(devs, layout, dinto, layout.clip);
+          devFrag.append(dgroup);
+        }
+      }
     }
+    frag.append(devFrag);
     marks.replaceChildren(frag);
+    const next: CompareStats | undefined = comparing
+      ? { hasExpected, drawn, compared, deviations, containers: withDeviations }
+      : undefined;
+    // The tolerance is part of the status text ("No deviations over 2 px"), so it's in the key.
+    const key = JSON.stringify(next ? { ...next, tolerance } : null);
+    stats = next;
+    if (key !== statsKey) {
+      statsKey = key;
+      events.onCompare();
+    }
     drawHighlight();
     if (dropped) events.onChange();
   };
@@ -541,6 +652,14 @@ export function createRendered(
       marks.hidden = !visible;
       if (!visible) pill.hidden = true;
     },
+    setCompare(on, t) {
+      if (on === comparing && t === tolerance) return;
+      comparing = on;
+      tolerance = t;
+      request();
+    },
+    compareStats: () => stats,
+    refresh: request,
     destroy() {
       pageObserver.disconnect();
       sizeObserver.disconnect();
