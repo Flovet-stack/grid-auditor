@@ -4,6 +4,7 @@ import {
   type ContentAlign,
   type Gap,
   gapAudit,
+  isInspectableBlock,
   normalizeAlign,
   paddingBands,
   pairGaps,
@@ -186,5 +187,34 @@ describe('6. padding bands (0016)', () => {
       { side: 'right', size: 4, left: 106, top: 28, width: 4, height: 52 },
       { side: 'left', size: 12, left: 10, top: 28, width: 12, height: 52 },
     ]);
+  });
+});
+
+// Spec 10: which elements the inspector can draw as blocks (0020).
+describe('inspectable blocks', () => {
+  const HTML = 'http://www.w3.org/1999/xhtml';
+  const check = (
+    display: string,
+    localName = 'div',
+    namespace: string | null = HTML,
+    hasChild = true,
+  ) => isInspectableBlock({ display, localName, namespace, hasChild });
+
+  it.each(['block', 'flow-root', 'list-item', 'inline-block', 'table'])(
+    '%s with children: yes',
+    (d) => {
+      expect(check(d)).toBe(true);
+    },
+  );
+
+  it.each(['inline', 'contents', 'none'])('%s: no', (d) => {
+    expect(check(d)).toBe(false);
+  });
+
+  it('never html, body, SVG, or an element without element children', () => {
+    expect(check('block', 'html')).toBe(false);
+    expect(check('block', 'body')).toBe(false);
+    expect(check('block', 'g', 'http://www.w3.org/2000/svg')).toBe(false);
+    expect(check('block', 'div', HTML, false)).toBe(false);
   });
 });

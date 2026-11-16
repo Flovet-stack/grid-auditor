@@ -78,7 +78,7 @@ Shift+G hides these marks along with the expected grid. Nothing here is saved ac
 
 ### Inspector
 
-Press **Shift+M** to inspect without opening the panel. Move the pointer over the page: only the grid or flex container under it is drawn, with its tracks, gaps, padding, values and size. A pill at the bottom says the inspector is on. While it's on, page clicks are paused (the wheel still scrolls). Press **Esc** or **Shift+M** to exit.
+Press **Shift+M** to inspect without opening the panel. Move the pointer over the page: only the element under it is drawn. That's the nearest grid or flex container, with its tracks, gaps, padding, values and size, or the nearest other element that has child elements, with its box, padding and size. Text, inline elements and SVG are skipped in favour of their parent. A pill at the bottom says the inspector is on. While it's on, page clicks are paused (the wheel still scrolls). Press **Esc** or **Shift+M** to exit.
 
 The inspector doesn't change which containers you turned on in the Rendered section. They're hidden while you inspect and come back when you exit.
 

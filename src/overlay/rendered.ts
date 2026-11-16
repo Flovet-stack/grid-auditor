@@ -17,6 +17,7 @@ import {
   type ContainerLayout,
   containerAt,
   type FoundContainer,
+  inspectableAt,
   gapAudit,
   snapValue,
   layoutChildren,
@@ -65,6 +66,7 @@ export const RENDERED_STYLES: string = `
 .rval.pad { background: var(--ga-pad); }
 .rdline, .rdbar, .rdcap { position: absolute; background: var(--ga-dev); }
 .rval.dev { background: var(--ga-dev); transform: translate(-50%, 0); }
+.rval.dev.up { transform: translate(-50%, -100%); }
 .rout { border: 1px solid var(--ga-rendered); }
 .rtag, .rpill { position: absolute; white-space: nowrap; padding: 0 4px; border-radius: 3px;
   color: #fff; font: 600 10px/16px ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -271,8 +273,10 @@ export function createRendered(
   };
   /**
    * One container's deviation marks (0019 §4): a line on the rendered edge, a capped bar to the
-   * expected edge 4 px below the content top (below the name tag when the tag sits inside), and
-   * a signed value box under the bar.
+   * expected edge, and a signed value box. Left edges get their bar 4 px below the content top
+   * (below the name tag when the tag sits inside) with the label under it; right edges get
+   * theirs 4 px above the content bottom with the label over it. A column's right edge and the
+   * next column's left edge sit a gutter apart, so their labels would collide on one row.
    */
   const drawDeviations = (
     devs: readonly Deviation[],
@@ -285,7 +289,8 @@ export function createRendered(
     const c = layout.content;
     // The name tag sits above the border box unless the box is within 16 px of the top (0017).
     const tagBottom = layout.border.top >= 16 ? -Infinity : layout.border.top + 16;
-    const barY = Math.max(c.top + 4, tagBottom + 4);
+    const topY = Math.max(c.top + 4, tagBottom + 4);
+    const bottomY = c.top + c.height - 4;
     const box = (cls: string, left: number, top: number, width: number, height: number) => {
       const d = el(cls);
       d.style.left = `${left - ox}px`;
@@ -296,14 +301,16 @@ export function createRendered(
     };
     for (const dev of devs) {
       box('rdline', dev.rendered - 1, c.top, 2, c.height);
+      const left = dev.side === 'left';
+      const barY = left ? topY : bottomY;
       const from = Math.min(dev.expected, dev.rendered);
       box('rdbar', from, barY - 1, Math.abs(dev.d), 2);
       box('rdcap', dev.expected - 0.5, barY - 4, 1, 8);
       box('rdcap', dev.rendered - 0.5, barY - 4, 1, 8);
-      const v = el('rval dev');
+      const v = el(left ? 'rval dev' : 'rval dev up');
       v.textContent = formatDeviation(dev.d);
       v.style.left = `${from + Math.abs(dev.d) / 2 - ox}px`;
-      v.style.top = `${barY + 5 - oy}px`;
+      v.style.top = `${(left ? barY + 5 : barY - 5) - oy}px`;
       into.append(v);
     }
   };
@@ -359,7 +366,8 @@ export function createRendered(
     // Deviation marks draw above every other mark, so they get their own groups, added last.
     const devFrag = doc.createDocumentFragment();
     for (const target of targets) {
-      const layout = measureContainer(target);
+      // The inspector's target may be a plain block with children (0020); shown ones are containers.
+      const layout = measureContainer(target, inspecting);
       if (!layout) continue;
       drawn++;
       const group = el('rgroup');
@@ -388,7 +396,8 @@ export function createRendered(
         into.append(d, value('gap', g, g.size, origin));
       }
       let text = labelOf(target);
-      if (layout.transformed) text += ' · transformed: tracks unavailable';
+      if (layout.transformed)
+        text += layout.kind === 'block' ? ' · transformed' : ' · transformed: tracks unavailable';
       else if (layout.kind === 'grid') {
         if (layout.columns === 'subgrid' || layout.rows === 'subgrid') text += ' · subgrid';
         else if (layout.columns === 'unavailable' && layout.rows === 'unavailable')
@@ -484,7 +493,8 @@ export function createRendered(
     () => {
       pill.hidden = true;
       if (lastPointer && (inspecting || picking)) {
-        const next = containerAt(underPointer(lastPointer.x, lastPointer.y), host);
+        const under = underPointer(lastPointer.x, lastPointer.y);
+        const next = inspecting ? inspectableAt(under, host) : containerAt(under, host);
         if (inspecting) setInspectTarget(next);
         else if (next !== pickTarget) {
           pickTarget = next;
@@ -532,11 +542,13 @@ export function createRendered(
     'pointermove',
     (e) => {
       lastPointer = { x: e.clientX, y: e.clientY };
-      const next = containerAt(underPointer(e.clientX, e.clientY), host);
+      const under = underPointer(e.clientX, e.clientY);
       if (inspecting) {
-        setInspectTarget(next);
+        // Any element with children, not only containers (0020).
+        setInspectTarget(inspectableAt(under, host));
         return;
       }
+      const next = containerAt(under, host);
       if (next !== pickTarget) {
         pickTarget = next;
         drawHighlight();

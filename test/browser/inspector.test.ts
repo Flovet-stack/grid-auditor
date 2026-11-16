@@ -43,6 +43,8 @@ beforeEach(async () => {
   style.textContent = 'html, body { margin: 0; padding: 0; }';
   document.head.append(style);
   fixture = document.createElement('div');
+  // Not a box of its own, so the inspector (0020) never picks the wrapper: `.plain` has nothing above it.
+  fixture.style.display = 'contents';
   fixture.innerHTML = FIXTURE;
   document.body.append(fixture);
   await page.viewport(1440, 900);
@@ -348,5 +350,154 @@ describe('10. destroy', () => {
     await userEvent.click(card);
     expect(pageClick).toHaveBeenCalledTimes(1);
     shiftM(); // listeners are gone: nothing throws
+  });
+});
+
+// Spec 10 browser tests: elements with children (0020).
+describe('11. elements with children', () => {
+  const BLOCKS = `
+    <section class="wrap" style="padding:24px; width:600px">
+      <div class="head" style="padding:8px 16px">
+        <h2 style="margin:0">Heading</h2>
+        <p style="margin:0">Text <span class="inl"><b>bold</b></span></p>
+      </div>
+      <div class="cells" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:20px">
+        <div class="t" style="height:40px">a</div><div>b</div><div>c</div>
+        <div class="card" style="padding:12px"><span>x</span><p style="margin:0">y</p></div>
+      </div>
+      <div class="pic" style="width:60px">
+        <svg class="art" width="40" height="40"><g><rect width="40" height="40" /></g></svg>
+      </div>
+      <div class="ghost" style="display:contents"><p class="inner" style="margin:0">only text</p></div>
+    </section>
+  `;
+  let blocks: HTMLElement;
+  beforeEach(() => {
+    blocks = document.createElement('div');
+    blocks.style.display = 'contents';
+    blocks.innerHTML = BLOCKS;
+    fixture.append(blocks);
+  });
+  const b = (sel: string) => blocks.querySelector(sel) as HTMLElement;
+  const hoverAt = async (x: number, y: number) => {
+    pointer('pointermove', { clientX: x, clientY: y });
+    await frames();
+  };
+
+  it('draws a padded block: box, padding and tag, but no tracks or gaps', async () => {
+    overlay = createGridOverlay();
+    shiftM();
+    const r = b('.wrap').getBoundingClientRect();
+    await hoverAt(r.left + 5, r.top + 5); // in the section's padding
+    expect(tagNames()).toEqual(['section.wrap']);
+    expect(q('.rmarks .rtag .rdim').textContent).toBe(
+      `${snapValue(r.width)} × ${snapValue(r.height)}`,
+    );
+    expect(qa('.rmarks .rbox')).toHaveLength(1);
+    expect(qa('.rmarks .rval.pad').map((v) => v.textContent)).toEqual(['24', '24', '24', '24']);
+    expect(qa('.rmarks .rtrack')).toHaveLength(0);
+    expect(qa('.rmarks .rgap')).toHaveLength(0);
+  });
+
+  it('text goes to the nearest parent with children', async () => {
+    overlay = createGridOverlay();
+    shiftM();
+    await hoverOver(b('.head h2'));
+    expect(tagNames()).toEqual(['div.head']);
+  });
+
+  it('a grid wins over its text-only cells; a cell with children is drawn itself', async () => {
+    overlay = createGridOverlay();
+    shiftM();
+    await hoverOver(b('.cells .t'));
+    expect(tagNames()).toEqual(['div.cells']);
+    expect(qa('.rmarks .rtrack.col')).toHaveLength(4);
+    await hoverOver(b('.card span'));
+    expect(tagNames()).toEqual(['div.card']);
+    // A gap of the grid: between the first and second cells.
+    const t = b('.cells .t').getBoundingClientRect();
+    await hoverAt(t.right + 10, t.top + 5);
+    expect(tagNames()).toEqual(['div.cells']);
+  });
+
+  it('never picks inline elements, SVG, display: contents, or body', async () => {
+    overlay = createGridOverlay();
+    shiftM();
+    // The inline span is skipped; its parent <p> has an element child, so it's the block drawn.
+    await hoverOver(b('.inl b'));
+    expect(tagNames()).toEqual(['p']);
+    const art = b('.art').getBoundingClientRect();
+    await hoverAt(art.left + 5, art.top + 5);
+    expect(tagNames()).toEqual(['div.pic']);
+    await hoverOver(b('.inner'));
+    expect(tagNames()).toEqual(['section.wrap']);
+    await hoverOver(fixture.querySelector('.plain') as Element);
+    expect(qa('.rmarks .rgroup')).toHaveLength(0);
+    expect(pill().hidden).toBe(false);
+  });
+
+  it('Pick still picks containers only', async () => {
+    overlay = createGridOverlay();
+    overlay.openPanel();
+    await userEvent.click(q('[data-key="pick"]'));
+    const r = b('.wrap').getBoundingClientRect();
+    pointer('pointermove', { clientX: r.left + 5, clientY: r.top + 5 });
+    await frames();
+    expect(qa('.rhl .rout')).toHaveLength(0);
+    pointer('pointermove', at(b('.cells .t')));
+    await frames();
+    expect(qa('.rhl .rtag .rname').map((t) => t.textContent)).toEqual(['div.cells']);
+  });
+
+  it('Compare skips a hovered block', async () => {
+    overlay = createGridOverlay();
+    overlay.openPanel();
+    await userEvent.click(q('[data-key="compare-show"]'));
+    shiftM();
+    const r = b('.wrap').getBoundingClientRect();
+    await hoverAt(r.left + 5, r.top + 5);
+    expect(q('[data-key="compare-status"]').textContent).toBe(
+      'Nothing to compare in the drawn elements',
+    );
+    expect(qa('.rmarks .rdline')).toHaveLength(0);
+  });
+
+  it('draws the innermost of 7 nested padded blocks in under 16 ms (median of 5)', async () => {
+    let html = '<p style="margin:0">leaf</p>';
+    for (let i = 7; i >= 1; i--) html = `<div class="n${i}" style="padding:4px">${html}</div>`;
+    blocks.insertAdjacentHTML('afterbegin', html);
+    overlay = createGridOverlay();
+    shiftM();
+    const times: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      await hoverOver(fixture.querySelector('.plain') as Element);
+      let before = 0;
+      let after = 0;
+      requestAnimationFrame(() => {
+        before = performance.now();
+      });
+      const t0 = performance.now();
+      pointer('pointermove', at(b('.n7 p')));
+      const sync = performance.now() - t0;
+      await new Promise<void>((r) =>
+        requestAnimationFrame(() => {
+          after = performance.now();
+          r();
+        }),
+      );
+      times.push(sync + (after - before));
+      expect(tagNames()).toEqual(['div.n7']);
+    }
+    times.sort((x, y) => x - y);
+    expect(times[2]).toBeLessThan(16);
+  });
+
+  it('has no axe violations while a block is inspected', async () => {
+    overlay = createGridOverlay();
+    overlay.openPanel();
+    shiftM();
+    await hoverOver(b('.head h2'));
+    const result = await axe.run(host(), { resultTypes: ['violations'] });
+    expect(result.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
   });
 });

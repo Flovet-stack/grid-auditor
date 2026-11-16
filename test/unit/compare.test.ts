@@ -246,7 +246,7 @@ describe('7. status text', () => {
     );
     expect(compareStatus(stats({ drawn: 0 }), 0.5, false)).toBe("Turn on a container's eye");
     expect(compareStatus(stats({ compared: 0 }), 0.5, true)).toBe(
-      'Nothing to compare in the drawn containers',
+      'Nothing to compare in the drawn elements',
     );
     expect(compareStatus(stats({}), 0.5, true)).toBe('No deviations over 0.5 px');
     expect(compareStatus(stats({}), 2, true)).toBe('No deviations over 2 px');
