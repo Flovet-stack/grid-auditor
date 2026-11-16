@@ -1,6 +1,6 @@
 # 06: Expected vs rendered comparison
 
-Status: In progress
+Status: Done (https://github.com/Flovet-stack/grid-auditor/pull/13)
 
 Brief: must-have #4 (expected vs rendered comparison). It builds on specs 02, 04, 07 and 08.
 

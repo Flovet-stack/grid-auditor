@@ -1,6 +1,6 @@
 # 10: Inspect elements with children
 
-Status: Ready
+Status: In progress
 
 Brief: must-have #17 (geometry inspection: "dimensions, padding, gaps and alignment of the hovered element"). It builds on spec 08.
 
