@@ -23,7 +23,6 @@ const status = () => q('[data-key="compare-status"]');
 const toggle = () => q('[data-key="compare-show"]');
 const tolerance = () => q<HTMLInputElement>('[data-key="compare-tolerance"]');
 
-const MINUS = '−';
 // A 12-column Stretch grid, 120 px margins and 24 px gutters: 78 px columns at 1440 px.
 const DESKTOP = {
   name: 'Desktop',
@@ -44,7 +43,7 @@ let style: HTMLStyleElement;
 const twelve = 'display:grid; grid-template-columns:repeat(12, 1fr); column-gap:24px';
 const FIXTURE = `
   <div class="aligned" style="${twelve}; margin:0 120px">${'<div style="height:20px"></div>'.repeat(12)}</div>
-  <div class="shifted" style="${twelve}; margin:20px 117px 0 123px">${'<div style="height:20px"></div>'.repeat(12)}</div>
+  <div class="shifted" style="${twelve}; margin:20px 117px 0 123px">${'<div style="height:48px"></div>'.repeat(12)}</div>
   <div class="wrap" style="display:flex; flex-wrap:wrap; column-gap:24px; row-gap:8px; margin:20px 120px 0; width:872px">
     ${'<span style="width:200px; height:20px"></span>'.repeat(8)}
   </div>
@@ -174,6 +173,25 @@ describe('3. shifted by 3 px', () => {
     expect(groups.at(-1)?.classList.contains('rdev')).toBe(true);
   });
 
+  it('left-edge labels sit at the top and right-edge labels at the bottom, so none overlap', async () => {
+    await start();
+    await showDeviations();
+    await eye('div.shifted');
+    const content = el('.shifted').getBoundingClientRect();
+    const boxes = qa('.rmarks .rval.dev').map((v) => v.getBoundingClientRect());
+    const top = boxes.filter((b) => b.top < content.top + content.height / 2);
+    const bottom = boxes.filter((b) => b.top >= content.top + content.height / 2);
+    expect(top).toHaveLength(12);
+    expect(bottom).toHaveLength(12);
+    for (const b of bottom) expect(b.bottom).toBeLessThanOrEqual(content.bottom);
+    for (const row of [top, bottom]) {
+      row.sort((a, b) => a.left - b.left);
+      for (let i = 1; i < row.length; i++) {
+        expect(row[i]?.left ?? 0).toBeGreaterThanOrEqual(row[i - 1]?.right ?? 0);
+      }
+    }
+  });
+
   it('uses the deviation orange', async () => {
     await start();
     await showDeviations();
@@ -260,7 +278,7 @@ describe('7. status messages', () => {
     await showDeviations();
     expect(status().textContent).toBe("Turn on a container's eye, or press Shift+M");
     await eye('div.turned');
-    expect(status().textContent).toBe('Nothing to compare in the drawn containers');
+    expect(status().textContent).toBe('Nothing to compare in the drawn elements');
     // Hide the Columns grid in Layout guide.
     await userEvent.click(q('[data-key="g0-visible"]'));
     await frames();

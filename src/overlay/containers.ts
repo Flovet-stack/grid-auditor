@@ -16,6 +16,8 @@ export interface Rect {
 }
 
 export type ContainerKind = 'grid' | 'flex';
+/** What the inspector can draw: a container, or a block with children (0020). */
+export type LayoutKind = ContainerKind | 'block';
 
 /** One track along an axis: its start (px, in the same space as the content box) and size. */
 export interface Track {
@@ -361,6 +363,49 @@ export function scanContainers(doc: Document, skip: Element): FoundContainer[] {
 }
 
 /** The nearest grid or flex container at or above `el`. */
+const HTML_NS = 'http://www.w3.org/1999/xhtml';
+
+/**
+ * Whether an element can be inspected as a block (0020 §1): an HTML element other than `html`
+ * or `body`, not `inline`, `contents` or `none`, with at least one laid-out element child.
+ * Pure, so the unit tests cover it; `blockAt` feeds it the live values.
+ */
+export function isInspectableBlock(e: {
+  readonly display: string;
+  readonly localName: string;
+  readonly namespace: string | null;
+  readonly hasChild: boolean;
+}): boolean {
+  if (e.namespace !== HTML_NS) return false;
+  if (e.localName === 'html' || e.localName === 'body') return false;
+  if (e.display === 'inline' || e.display === 'contents' || e.display === 'none') return false;
+  return e.hasChild;
+}
+
+/** `true` when `el` is an inspectable block with a box bigger than 0. */
+function isBlock(el: Element, style?: CSSStyleDeclaration): boolean {
+  const s = style ?? el.ownerDocument.defaultView?.getComputedStyle(el);
+  if (!s) return false;
+  const quick = { display: s.display, localName: el.localName, namespace: el.namespaceURI };
+  if (!isInspectableBlock({ ...quick, hasChild: true })) return false;
+  const r = el.getBoundingClientRect();
+  if (r.width === 0 || r.height === 0) return false;
+  return hasLayoutChild(el);
+}
+
+/**
+ * The inspector's hover target (0020): the first element from `el` up that's a grid or flex
+ * container or an inspectable block. Stops at `body`, so empty page areas give nothing.
+ * Pick keeps using `containerAt`.
+ */
+export function inspectableAt(el: Element | null, skip: Element): Element | undefined {
+  for (let n = el; n; n = n.parentElement) {
+    if (n === skip || n.localName === 'body' || n.localName === 'html') return undefined;
+    if (containerKind(n) || isBlock(n)) return n;
+  }
+  return undefined;
+}
+
 export function containerAt(el: Element | null, skip: Element): Element | undefined {
   for (let n = el; n; n = n.parentElement) {
     if (n === skip) return undefined;
@@ -388,7 +433,7 @@ function isTransformed(el: Element): boolean {
 export type AxisTracks = readonly Track[] | 'subgrid' | 'unavailable';
 
 export interface ContainerLayout {
-  readonly kind: ContainerKind;
+  readonly kind: LayoutKind;
   /** Border box, in viewport (client) px. */
   readonly border: Rect;
   /** Content box at the current scroll position. */
@@ -405,12 +450,16 @@ export interface ContainerLayout {
   readonly transformed: boolean;
 }
 
-/** Measures a container as laid out now, in viewport px. */
-export function measureContainer(el: Element): ContainerLayout | undefined {
+/**
+ * Measures a container as laid out now, in viewport px. With `allowBlock` (the inspector, 0020),
+ * an inspectable block that isn't a container is measured too, with no tracks and no gaps.
+ */
+export function measureContainer(el: Element, allowBlock = false): ContainerLayout | undefined {
   const view = el.ownerDocument.defaultView;
   const s = view?.getComputedStyle(el);
   if (!s) return undefined;
-  const kind = containerKind(el, s);
+  const kind: LayoutKind | undefined =
+    containerKind(el, s) ?? (allowBlock && isBlock(el, s) ? 'block' : undefined);
   if (!kind) return undefined;
   const border = toRect(el.getBoundingClientRect());
   const bl = px(s.borderLeftWidth);
@@ -439,7 +488,8 @@ export function measureContainer(el: Element): ContainerLayout | undefined {
   const padding = paddingBands(paddingBox, pt, px(s.paddingRight), px(s.paddingBottom), pl);
   const transformed = isTransformed(el);
   const items = layoutChildren(el).map((c) => toRect(c.getBoundingClientRect()));
-  const gaps = pairGaps(items);
+  // A block shows its box and padding only (0020 §2).
+  const gaps = kind === 'block' ? [] : pairGaps(items);
 
   let columns: AxisTracks = 'unavailable';
   let rows: AxisTracks = 'unavailable';

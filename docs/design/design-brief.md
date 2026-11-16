@@ -181,7 +181,7 @@ It matches Figma's Layout guide panel. See the screenshots in [references/figma-
 
 ### 10.3 Inspector (0018, spec 08)
 
-- **Shift+M** toggles it; Esc exits. Only the container under the pointer is drawn, with the same marks as 10.2.
+- **Shift+M** toggles it; Esc exits. Only the element under the pointer is drawn: the innermost grid or flex container (the same marks as 10.2), or the innermost other element with child elements, with its content box, blue padding with values, and name tag (0020). `html`, `body`, inline elements and SVG are never drawn.
 - **Pill:** bottom centre, 16 px up, on the panel's dark grey with white text: `Geometry inspector on · Page interactions paused · Press Esc to exit`, with `Esc` as a keycap. It's a status region, and the pointer passes through it.
 - **Paused page:** a crosshair over the whole page; clicks don't reach it. The panel stays usable above it.
 - **Eye state** in the Rendered section is kept: those marks are hidden while inspecting and return on exit. The Rendered section never changes.
@@ -191,7 +191,7 @@ It matches Figma's Layout guide panel. See the screenshots in [references/figma-
 - **Place:** between Layout guide and Rendered, always expanded.
 - **Row:** a **Show deviations** text toggle (off by default, styled like Show flex), then **Tolerance** with a px field (default 0.5, 0.5–20 in 0.5 steps; arrows step 0.5, Shift+arrows 5).
 - **Status line:** muted text under the row while the switch is on: the deviation count (`3 deviations in 2 containers`), `No deviations over 0.5 px`, or what to turn on first.
-- **Marks:** only on drawn containers (eyes on, or the inspector's hovered one), above every other rendered mark: an orange line on each deviating edge, a capped bar to the expected edge 4 px below the content top, and a signed value box under it.
+- **Marks:** only on drawn containers (eyes on, or the inspector's hovered one), above every other rendered mark: an orange line on each deviating edge, a capped bar to the expected edge, and a signed value box. Left edges get their bar 4 px below the content top with the label under it, and right edges 4 px above the content bottom with the label over it (0021).
 
 Why the panel floats here when UI3 docked its panels: Figma docked them because they covered the canvas. We are layered over someone else's app and can't take space away from it, so the panel floats and collapses to the toolbar instead. This is Figma's "Minimize UI" pattern, used as our default.
 

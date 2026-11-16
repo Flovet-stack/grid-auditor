@@ -39,8 +39,10 @@ Implements 0019. Uses:
 
 - [ ] **Colour:** `#e5590b`, set as one CSS custom property in the rendered layer's styles and used for nothing else.
 - [ ] **Edge line:** a 2 px solid line centred on the rendered edge, spanning the container's content box vertically.
-- [ ] **Bar:** a 2 px solid horizontal bar from the expected x to the rendered x, at 4 px below the content box's top. It has a 1 × 8 px end cap at each end, so a 1 px deviation still shows two caps.
-- [ ] **Label:** a value box centred under the bar's midpoint.
+- [ ] **Bar:** a 2 px solid horizontal bar from the expected x to the rendered x. It has a 1 × 8 px end cap at each end, so a 1 px deviation still shows two caps.
+  - **Left edges:** 4 px below the content box's top.
+  - **Right edges:** 4 px above the content box's bottom (amended by 0021, so a column's right-edge label and the next column's left-edge label never share a row).
+- [ ] **Label:** a value box centred on the bar's midpoint: under the bar for left edges, over it for right edges.
   - Bold 10 px white text on the deviation colour, with a 2 px radius.
   - The same padding as the gap and padding value boxes (0016).
   - It never covers the name tag (0017), which sits above the top edge.
@@ -62,7 +64,7 @@ Implements 0019. Uses:
 - [ ] **Status line:** muted 11 px text under the row, shown only while Show deviations is on. The first case that applies wins:
   1. `Turn on a Columns grid in Layout guide`: the active breakpoint has no visible Columns grid.
   2. `Turn on a container's eye, or press Shift+M`: nothing is drawn. When `shortcuts.inspect` is `false`, it reads `Turn on a container's eye`.
-  3. `Nothing to compare in the drawn containers`: every drawn container was skipped (subgrid or transformed).
+  3. `Nothing to compare in the drawn elements`: every drawn container was skipped (subgrid or transformed).
   4. `N deviation(s) in M container(s)`, for example `1 deviation in 1 container` or `3 deviations in 2 containers`.
   5. `No deviations over T px`, where T is the tolerance with no trailing `.0`, for example `No deviations over 0.5 px` or `over 2 px`.
 - [ ] **Not a live region:** the status line isn't a live region, because it changes on every inspector hover. Its text is plain and readable in place.
@@ -132,7 +134,7 @@ Implements 0019. Uses:
    - With the Columns grid's eye off: `Turn on a Columns grid in Layout guide`.
    - With no eyes on: `Turn on a container's eye, or press Shift+M`.
    - With `shortcuts: { inspect: false }`: `Turn on a container's eye`.
-   - With only a transformed container: `Nothing to compare in the drawn containers`.
+   - With only a transformed container: `Nothing to compare in the drawn elements`.
 8. **Sync:**
    - Scrolling the page vertically doesn't change the labels.
    - Resizing across a breakpoint compares against the new breakpoint's grid.

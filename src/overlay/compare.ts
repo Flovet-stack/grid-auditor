@@ -26,7 +26,7 @@ export interface CompareStats {
   readonly hasExpected: boolean;
   /** Containers drawn (eyes on, or the inspector's hovered one). */
   readonly drawn: number;
-  /** Drawn containers that had edges to compare (not subgrid or transformed). */
+  /** Drawn elements that had edges to compare (not blocks, subgrid or transformed). */
   readonly compared: number;
   readonly deviations: number;
   /** Compared containers with at least one deviation. */
@@ -74,7 +74,8 @@ export function dedupeEdges(edges: readonly number[]): number[] {
  * no track sizes), so it doesn't count as compared.
  */
 export function renderedEdges(layout: ContainerLayout): Edges | undefined {
-  if (layout.transformed) return undefined;
+  // Blocks (0020) have no column edges; transformed boxes have no reliable ones.
+  if (layout.transformed || layout.kind === 'block') return undefined;
   if (layout.kind === 'grid') {
     if (typeof layout.columns === 'string') return undefined;
     return {
@@ -154,7 +155,7 @@ export function compareStatus(stats: CompareStats, tolerance: number, inspectOn:
   if (stats.drawn === 0) {
     return inspectOn ? "Turn on a container's eye, or press Shift+M" : "Turn on a container's eye";
   }
-  if (stats.compared === 0) return 'Nothing to compare in the drawn containers';
+  if (stats.compared === 0) return 'Nothing to compare in the drawn elements';
   if (stats.deviations > 0) {
     return `${plural(stats.deviations, 'deviation')} in ${plural(stats.containers, 'container')}`;
   }
