@@ -4,7 +4,7 @@
 - **Proposed:** 2026-11-15 by the product team (roles: Tech Lead, Product, UX, UI, Copy, Frontend)
 - **Approved:** 2026-11-16 by Flovet
 - **Supersedes:** part of 0011, the rendered side of page comparison (0011 spec 04 compared the hovered or pinned element's edges). Part of 0005: the deviation colour (magenta). The 1 px default tolerance in the brief and in 0011, which becomes 0.5 px.
-- **Specs:** none yet (spec 06 once approved)
+- **Specs:** specs/06-expected-vs-rendered.md
 
 ## Context
 
