@@ -398,6 +398,8 @@ export interface ContainerLayout {
   readonly columns: AxisTracks;
   readonly rows: AxisTracks;
   readonly gaps: readonly Gap[];
+  /** Border boxes of the laid-out children, in viewport px (spec 06 compares flex items). */
+  readonly items: readonly Rect[];
   /** Padding sides that aren't 0 (0016). */
   readonly padding: readonly Band[];
   readonly transformed: boolean;
@@ -436,7 +438,8 @@ export function measureContainer(el: Element): ContainerLayout | undefined {
   const clip: Rect | undefined = clipped ? paddingBox : undefined;
   const padding = paddingBands(paddingBox, pt, px(s.paddingRight), px(s.paddingBottom), pl);
   const transformed = isTransformed(el);
-  const gaps = pairGaps(layoutChildren(el).map((c) => toRect(c.getBoundingClientRect())));
+  const items = layoutChildren(el).map((c) => toRect(c.getBoundingClientRect()));
+  const gaps = pairGaps(items);
 
   let columns: AxisTracks = 'unavailable';
   let rows: AxisTracks = 'unavailable';
@@ -454,5 +457,5 @@ export function measureContainer(el: Element): ContainerLayout | undefined {
     columns = axis(s.gridTemplateColumns, px(s.columnGap), true);
     rows = axis(s.gridTemplateRows, px(s.rowGap), false);
   }
-  return { kind, border, content, clip, columns, rows, gaps, padding, transformed };
+  return { kind, border, content, clip, columns, rows, gaps, items, padding, transformed };
 }

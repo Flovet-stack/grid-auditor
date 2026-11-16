@@ -9,6 +9,7 @@ import {
   type LayoutGridInput,
   normalizeBreakpoints,
 } from '../engine';
+import { isTolerance } from './compare';
 
 export const STORAGE_KEY = 'grid-auditor:v1';
 
@@ -17,12 +18,19 @@ export interface Position {
   readonly y: number;
 }
 
+/** The Compare section's viewing preferences (0019 §5): not code config, so not fingerprinted. */
+export interface CompareSettings {
+  readonly show: boolean;
+  readonly tolerance: number;
+}
+
 /** The stored entry. `breakpoints` is present only when the user has edited grids. */
 export interface Stored {
   readonly version: 1;
   readonly fingerprint: string;
   readonly breakpoints?: readonly BreakpointInput[];
   readonly panel?: Position;
+  readonly compare?: CompareSettings;
 }
 
 /** A grid as input, with only the fields that apply, so re-validating adds no warnings. */
@@ -90,7 +98,16 @@ const isPosition = (v: unknown): v is Position =>
   Number.isFinite((v as Position).x) &&
   Number.isFinite((v as Position).y);
 
-/** Parses a stored entry. Anything malformed, from another version or invalid gives `undefined`. */
+const isCompare = (v: unknown): v is CompareSettings =>
+  typeof v === 'object' &&
+  v !== null &&
+  typeof (v as CompareSettings).show === 'boolean' &&
+  isTolerance((v as CompareSettings).tolerance);
+
+/**
+ * Parses a stored entry. Anything malformed, from another version or invalid gives `undefined`.
+ * A bad `compare` is dropped on its own, so it never costs the user their grid edits (spec 06).
+ */
 export function parseStored(text: string | null): Parsed | undefined {
   if (text === null) return undefined;
   let data: unknown;
@@ -104,8 +121,14 @@ export function parseStored(text: string | null): Parsed | undefined {
   if (d.version !== 1 || typeof d.fingerprint !== 'string') return undefined;
   if (d.panel !== undefined && !isPosition(d.panel)) return undefined;
   const panel = d.panel as Position | undefined;
+  const extra = {
+    ...(panel ? { panel } : {}),
+    ...(isCompare(d.compare)
+      ? { compare: { show: d.compare.show, tolerance: d.compare.tolerance } }
+      : {}),
+  };
   if (d.breakpoints === undefined) {
-    return { stored: { version: 1, fingerprint: d.fingerprint, ...(panel ? { panel } : {}) } };
+    return { stored: { version: 1, fingerprint: d.fingerprint, ...extra } };
   }
   if (!Array.isArray(d.breakpoints)) return undefined;
   const bps = d.breakpoints as BreakpointInput[];
@@ -119,7 +142,7 @@ export function parseStored(text: string | null): Parsed | undefined {
       version: 1,
       fingerprint: d.fingerprint,
       breakpoints: bps,
-      ...(panel ? { panel } : {}),
+      ...extra,
     },
     breakpoints: r.value,
   };

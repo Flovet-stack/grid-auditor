@@ -113,6 +113,7 @@ References are for inspiration only: never copy their logos, names, icons, illus
 
 Product-wide decisions only. Every decision, with its research, is logged in `docs/decisions/`.
 
+- 2026-11-16: The inspector (#17) draws the innermost hovered element that has children: grid and flex containers as before, and other elements with their box and padding (no margins, no inline elements). The Rendered list and Pick still cover containers only (0020).
 - 2026-11-16: Expected vs rendered (#4) compares the containers that are drawn (eyes on, or hovered in the inspector) with the visible expected Columns grids: start edges with start edges, end edges with end edges. Deviations are orange (`#e5590b`, replacing magenta) with a signed px label, shown from a Compare section (off by default). The default tolerance is 0.5 px, checked before rounding (0019).
 - 2026-11-15: The first geometry inspector (#17) is Shift+M: it pauses page clicks and draws the rendered grid of the hovered container only, with a pill that says Esc exits. Eye state in the Rendered section is kept, and the section itself always stays. New option `shortcuts.inspect` (0018).
 

@@ -1,5 +1,6 @@
 /**
- * The control panel: Layout guide section (decisions 0012 and 0014, spec 03; design brief §10–12).
+ * The control panel: Layout guide section (decisions 0012 and 0014, spec 03; design brief §10–12),
+ * Compare (0019, spec 06) and Rendered (0015, spec 07).
  * Each grid is one compact row; its fields open in a popover, as in Figma.
  * It holds no grid state of its own: it reads the store and writes through `setGrids`.
  */
@@ -11,7 +12,8 @@ import {
   type LayoutGrid,
   type LayoutGridInput,
 } from '../engine';
-import { type Position, toInput } from './persist';
+import { formatTolerance, normalizeTolerance, TOLERANCE_MAX, TOLERANCE_MIN } from './compare';
+import { type CompareSettings, type Position, toInput } from './persist';
 import { type Rendered, type RenderedItem, UI_FONT } from './rendered';
 
 export interface PanelStore {
@@ -38,6 +40,11 @@ export interface PanelStore {
   savePosition(position: Position): void;
   /** The rendered grid overlay (0015, spec 07). */
   rendered(): Rendered;
+  /** Compare section preferences (0019, spec 06). */
+  compare(): CompareSettings;
+  setCompare(next: CompareSettings): void;
+  /** The status line, or `undefined` while Show deviations is off. */
+  compareStatus(): string | undefined;
 }
 
 /** Why the panel is re-syncing: code replaces everything; panel and resize keep in-progress fields. */
@@ -61,6 +68,8 @@ export interface Panel {
   syncRendered(): void;
   /** Pick chose `el`: open the section (and the flex filter if needed) and focus its row. */
   picked(el: Element): void;
+  /** Updates the Compare status line when its text changed (spec 06). */
+  syncCompare(): void;
 }
 
 /** Colours, font and sizes from decision 0014 (Figma's dark UI). */
@@ -197,6 +206,13 @@ kbd { font: 400 11px var(--ga-font); color: var(--ga-muted); border: 1px solid v
 .rrow .rlabel small { margin-left: 6px; color: var(--ga-muted); font: inherit; }
 .panel .pickbtn[aria-pressed="true"] { background: var(--ga-active); color: var(--ga-text); }
 .flex-toggle { margin: 4px 16px; }
+.csec { margin-top: 8px; border-top: 1px solid var(--ga-border); padding-top: 4px; }
+.crow { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 16px; }
+.crow .text-btn { color: var(--ga-muted); }
+.panel .crow .text-btn[aria-pressed="true"] { background: var(--ga-active); color: var(--ga-text); }
+.crow .ctol { margin-left: auto; color: var(--ga-muted); }
+.crow .unit { width: 64px; flex: 0 0 64px; }
+.cstatus { margin: 0 16px 4px; color: var(--ga-muted); }
 .panel .flex-toggle[aria-pressed="true"] { background: var(--ga-active); color: var(--ga-text); }
 `;
 
@@ -1125,6 +1141,92 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
     return f;
   };
 
+  // ----- Compare section (0019, spec 06) -----
+
+  const csec = el('section', { class: 'csec', 'aria-labelledby': 'ga-compare' });
+  let statusShown: string | undefined;
+
+  function renderCompare(): void {
+    const shadow = root.getRootNode() as ShadowRoot | Document;
+    const focused = shadow.activeElement as HTMLElement | null;
+    const focusedKey = focused && csec.contains(focused) ? focused.dataset.key : undefined;
+    const { show, tolerance } = store.compare();
+
+    const sh = el('div', { class: 'section-head' });
+    sh.append(el('h3', { id: 'ga-compare' }, 'Compare'));
+    const row = el('div', { class: 'crow' });
+    const toggle = el(
+      'button',
+      {
+        type: 'button',
+        class: 'text-btn',
+        'aria-pressed': String(show),
+        'data-key': 'compare-show',
+      },
+      'Show deviations',
+    );
+    toggle.addEventListener(
+      'click',
+      () => {
+        const c = store.compare();
+        store.setCompare({ ...c, show: !c.show });
+        renderCompare();
+      },
+      { signal },
+    );
+    const label = el('span', { class: 'ctol', id: 'ga-tolerance' }, 'Tolerance');
+    const box = el('span', { class: 'unit' });
+    const input = el('input', {
+      type: 'text',
+      inputmode: 'decimal',
+      autocomplete: 'off',
+      spellcheck: 'false',
+      'aria-label': 'Tolerance',
+      'data-key': 'compare-tolerance',
+    }) as HTMLInputElement;
+    input.value = formatTolerance(tolerance);
+    // Enter or blur commits: rounded to 0.5 and clamped to 0.5–20; not a number puts back the last value.
+    const commit = (): void => {
+      if (rebuilding) return;
+      const c = store.compare();
+      const next = normalizeTolerance(input.value, c.tolerance);
+      input.value = formatTolerance(next);
+      if (next !== c.tolerance) store.setCompare({ ...c, tolerance: next });
+    };
+    input.addEventListener('change', commit, { signal });
+    keyHandlers.set(input, (e) => {
+      if (e.key === 'Enter') commit();
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const step = (e.shiftKey ? 5 : 0.5) * (e.key === 'ArrowUp' ? 1 : -1);
+        const n = Number.parseFloat(input.value);
+        const base = Number.isFinite(n) ? n : store.compare().tolerance;
+        input.value = String(Math.min(TOLERANCE_MAX, Math.max(TOLERANCE_MIN, base + step)));
+        commit();
+      }
+    });
+    box.append(input, el('small', {}, 'px'));
+    row.append(toggle, label, box);
+    const status = el('p', { class: 'cstatus', 'data-key': 'compare-status' });
+    statusShown = store.compareStatus();
+    status.textContent = statusShown ?? '';
+    status.hidden = !show || statusShown === undefined;
+    csec.replaceChildren(sh, row, status);
+    if (focusedKey)
+      csec.querySelector<HTMLElement>(`[data-key="${focusedKey}"]`)?.focus({ preventScroll: true });
+  }
+
+  /** Only the status text changes here, so typing in the tolerance field keeps its focus. */
+  const syncCompareStatus = (): void => {
+    const next = store.compareStatus();
+    if (next === statusShown) return;
+    statusShown = next;
+    const status = csec.querySelector<HTMLElement>('.cstatus');
+    if (!status) return;
+    status.textContent = next ?? '';
+    status.hidden = !store.compare().show || next === undefined;
+  };
+
   // ----- Rendered section (0015, spec 07) -----
 
   /** The section element is kept across rebuilds; only its contents are redrawn. */
@@ -1377,7 +1479,8 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
     });
     if (bp && bp.grids.length === 0)
       list.append(el('p', { class: 'empty' }, 'No grids. Add one with +.'));
-    body.replaceChildren(...parts, sh, list, footer(), rsec);
+    body.replaceChildren(...parts, sh, list, footer(), csec, rsec);
+    renderCompare();
     renderRendered();
 
     popover?.remove();
@@ -1500,6 +1603,9 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
     },
     syncRendered() {
       if (!root.hidden) renderRendered();
+    },
+    syncCompare() {
+      if (!root.hidden) syncCompareStatus();
     },
     picked(target) {
       rOpen = true;

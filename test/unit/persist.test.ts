@@ -113,6 +113,25 @@ describe('3. parse', () => {
     expect(pos?.stored.panel).toEqual({ x: 3, y: 4 });
   });
 
+  it('keeps a valid compare setting and drops a bad one without losing the rest (spec 06)', () => {
+    const compare = { show: true, tolerance: 2 };
+    expect(parseStored(JSON.stringify({ ...good, compare }))?.stored.compare).toEqual(compare);
+    for (const bad of [
+      { show: 'yes', tolerance: 2 },
+      { show: true, tolerance: 0.25 },
+      { show: true, tolerance: 25 },
+      { show: true },
+      'on',
+    ]) {
+      const p = parseStored(JSON.stringify({ ...good, compare: bad }));
+      expect(p?.stored.compare).toBeUndefined();
+      expect(p?.breakpoints).toEqual(norm(ALL));
+      expect(p?.stored.panel).toEqual({ x: 1, y: 2 });
+    }
+    const only = parseStored(JSON.stringify({ version: 1, fingerprint: 'abc', compare }));
+    expect(only?.stored.compare).toEqual(compare);
+  });
+
   it.each([
     ['nothing', null],
     ['invalid JSON', '{nope'],
