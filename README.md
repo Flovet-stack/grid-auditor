@@ -64,7 +64,7 @@ Press **Ctrl+Shift+G** (**Cmd+Shift+G** on Mac) to open the panel. It shows the 
 
 ### Rendered grid
 
-The **Rendered** section, below Layout guide, shows the grid the page actually laid out. Open it to list the page's grid containers as a tree that follows the page structure, like Figma's layers panel (flex containers are behind **Show flex**; chevrons collapse a branch), then turn on a container's eye to draw it:
+The **Rendered** section, below Layout guide, shows the grid the page actually laid out. Open it to list the page's grid containers as a tree that follows the page structure, like Figma's layers panel (flex containers are behind **Show flex**; chevrons collapse a branch), then turn on a container's eye to draw it. **Show blocks** adds every other element that has child elements, such as a padded `<section>`, as parents in the tree. Their eyes draw their box, padding and name tag:
 
 - **Grid containers:** each real column and row track as a dashed outline, from the browser's own computed sizes.
 - **Gaps:** shaded pink, measured between neighbouring children, so wrapped flex rows work too. Each shows its size in a small pink box.
@@ -72,7 +72,7 @@ The **Rendered** section, below Layout guide, shows the grid the page actually l
 - **Content box:** a dashed outline, with a dark tag showing the container's name and size (`div.cards 977 × 152`).
 - **Gap audit:** each row reads, for example, `gaps 24 ×5`, or `gaps 16 ×3, 24 ×1 · inconsistent` when the spacing isn't even.
 - **Track sizes:** hover a track to see its number and size, for example `2 · 240 px`.
-- **Pick:** the target button lets you click a container on the page instead. While picking, the page doesn't receive that click; at all other times the overlay never swallows a page event. Esc cancels.
+- **Pick:** the target button lets you click an element on the page instead, by the same rule as the inspector. Picking a block turns on Show blocks. While picking, the page doesn't receive that click; at all other times the overlay never swallows a page event. Esc cancels.
 
 Shift+G hides these marks along with the expected grid. Nothing here is saved across reloads yet, and nothing is compared with the expected grid yet.
 

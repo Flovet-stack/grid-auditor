@@ -1,6 +1,6 @@
 # 10: Inspect elements with children
 
-Status: In progress
+Status: Done (https://github.com/Flovet-stack/grid-auditor/pull/14)
 
 Brief: must-have #17 (geometry inspection: "dimensions, padding, gaps and alignment of the hovered element"). It builds on spec 08.
 

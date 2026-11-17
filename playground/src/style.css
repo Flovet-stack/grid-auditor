@@ -82,6 +82,8 @@ body {
 /* Spec 06 fixture: grids built from the default layout guides (0010), one shifted 3 px. */
 .compare-demo {
   padding: 48px 0;
+  /* The 3 px shifted grid pokes past the right edge; don't let it scroll the page sideways. */
+  overflow-x: clip;
 }
 .cmp-head {
   padding: 0 16px;

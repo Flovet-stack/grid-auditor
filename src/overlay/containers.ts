@@ -335,14 +335,27 @@ export function containerKind(el: Element, style?: CSSStyleDeclaration): Contain
 
 export interface FoundContainer {
   readonly el: Element;
-  readonly kind: ContainerKind;
+  readonly kind: LayoutKind;
   readonly label: string;
 }
 
-/** Every grid and flex container on the page, in document order, skipping `skip` (our host). */
-export function scanContainers(doc: Document, skip: Element): FoundContainer[] {
+/**
+ * Every grid and flex container on the page, in document order, skipping `skip` (our host).
+ * With `blocks` (Show blocks, 0022), every inspectable block (0020 §1) is listed too.
+ */
+export function scanContainers(
+  doc: Document,
+  skip: Element,
+  options: { readonly blocks?: boolean } = {},
+): FoundContainer[] {
   const view = doc.defaultView;
-  const found: { el: Element; kind: ContainerKind }[] = [];
+  const found: { el: Element; kind: LayoutKind }[] = [];
+  // Blocks are checked after the walk, so their children's display and position are already
+  // read: one style lookup per element instead of two (spec 11's scan budget).
+  const seen = options.blocks
+    ? new Map<Element, { display: string; position: string }>()
+    : undefined;
+  const candidates: { el: Element; at: number }[] = [];
   // A flat list is much faster than a TreeWalker with a JS filter. `skip` (our host) has no
   // light-DOM children, so skipping the element itself is enough.
   const all = doc.getElementsByTagName('*');
@@ -351,10 +364,39 @@ export function scanContainers(doc: Document, skip: Element): FoundContainer[] {
     if (el === skip) continue;
     const style = view?.getComputedStyle(el);
     const display = style?.display ?? '';
-    // Cheap check first; only possible containers pay for boxes and children.
-    if (display.length < 4 || !/^(inline-)?(grid|flex)$/.test(display)) continue;
-    const kind = containerKind(el, style);
-    if (kind) found.push({ el, kind });
+    seen?.set(el, { display, position: style?.position ?? '' });
+    // Cheap checks first; only possible containers and blocks pay for boxes and children.
+    if (/^(inline-)?(grid|flex)$/.test(display)) {
+      const kind = containerKind(el, style);
+      if (kind) found.push({ el, kind });
+      continue;
+    }
+    if (!seen || !el.firstElementChild) continue;
+    const quick = { display, localName: el.localName, namespace: el.namespaceURI, hasChild: true };
+    if (isInspectableBlock(quick)) candidates.push({ el, at: found.length });
+  }
+  if (seen && candidates.length) {
+    const laidOut = (parent: Element): boolean => {
+      for (const child of Array.from(parent.children)) {
+        const info = seen.get(child);
+        if (!info || info.display === 'none') continue;
+        if (info.display === 'contents') {
+          if (laidOut(child)) return true;
+          continue;
+        }
+        if (info.position === 'absolute' || info.position === 'fixed') continue;
+        const r = child.getBoundingClientRect();
+        if (r.width > 0 || r.height > 0) return true;
+      }
+      return false;
+    };
+    // Insert blocks back in document order, last first so earlier positions stay valid.
+    for (let k = candidates.length - 1; k >= 0; k--) {
+      const { el, at } = candidates[k] as { el: Element; at: number };
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0 || !laidOut(el)) continue;
+      found.splice(at, 0, { el, kind: 'block' });
+    }
   }
   const labels = uniqueLabels(
     found.map(({ el }) => baseLabel(el.tagName, Array.from(el.classList), el.id)),
@@ -396,7 +438,7 @@ function isBlock(el: Element, style?: CSSStyleDeclaration): boolean {
 /**
  * The inspector's hover target (0020): the first element from `el` up that's a grid or flex
  * container or an inspectable block. Stops at `body`, so empty page areas give nothing.
- * Pick keeps using `containerAt`.
+ * Pick uses it too (0022).
  */
 export function inspectableAt(el: Element | null, skip: Element): Element | undefined {
   for (let n = el; n; n = n.parentElement) {
