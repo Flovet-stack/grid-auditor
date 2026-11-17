@@ -21,3 +21,4 @@ One file per task: `NN-short-name.md`, small enough for one agent session. Forma
 | 08  | [Geometry inspector (hover)](08-geometry-inspector.md) (Done)                 | 0018                         |
 | 09  | First release 0.1.0                                                           | 0003, 0004                   |
 | 10  | [Inspect elements with children](10-inspect-elements-with-children.md) (Done) | 0020                         |
+| 11  | [Show blocks in the Rendered list](11-rendered-blocks.md) (In progress)       | 0022                         |
