@@ -15,7 +15,6 @@ import {
   type AxisTracks,
   baseLabel,
   type ContainerLayout,
-  containerAt,
   type FoundContainer,
   inspectableAt,
   gapAudit,
@@ -115,7 +114,7 @@ export function setInspectPill(pill: HTMLElement, on: boolean): void {
 }
 
 export interface RenderedItem extends FoundContainer {
-  /** Gap audit text, computed on demand and cached until the next scan. */
+  /** Gap audit text, computed on demand and cached until the next scan. Empty for blocks. */
   audit(): string;
 }
 
@@ -126,6 +125,8 @@ export interface Rendered {
   setWatching(on: boolean): void;
   /** True once a scan has run. */
   scanned(): boolean;
+  /** Show blocks (0022): list inspectable blocks too. Scans again straight away while watching. */
+  setBlocks(on: boolean): void;
   items(): readonly RenderedItem[];
   isShown(el: Element): boolean;
   setShown(el: Element, on: boolean): void;
@@ -195,6 +196,8 @@ export function createRendered(
   let list: RenderedItem[] = [];
   let hasScanned = false;
   let watching = false;
+  /** Show blocks (0022): blocks are scanned only while this is on. */
+  let blocks = false;
   let picking = false;
   let inspecting = false;
   /** The container under the pointer while inspecting. */
@@ -215,11 +218,12 @@ export function createRendered(
   // ----- scanning (section open only) -----
   const scan = (): void => {
     hasScanned = true;
-    list = scanContainers(doc, host).map((f) => {
+    list = scanContainers(doc, host, { blocks }).map((f) => {
       let cached: string | undefined;
       return {
         ...f,
         audit: () => {
+          if (f.kind === 'block') return '';
           cached ??= gapAudit(pairGaps(layoutChildren(f.el).map((c) => c.getBoundingClientRect())));
           return cached;
         },
@@ -366,8 +370,8 @@ export function createRendered(
     // Deviation marks draw above every other mark, so they get their own groups, added last.
     const devFrag = doc.createDocumentFragment();
     for (const target of targets) {
-      // The inspector's target may be a plain block with children (0020); shown ones are containers.
-      const layout = measureContainer(target, inspecting);
+      // Blocks with children can be inspected (0020) and shown from the list (0022).
+      const layout = measureContainer(target, true);
       if (!layout) continue;
       drawn++;
       const group = el('rgroup');
@@ -494,7 +498,8 @@ export function createRendered(
       pill.hidden = true;
       if (lastPointer && (inspecting || picking)) {
         const under = underPointer(lastPointer.x, lastPointer.y);
-        const next = inspecting ? inspectableAt(under, host) : containerAt(under, host);
+        // Pick and the inspector both take any element with children (0020, 0022).
+        const next = inspectableAt(under, host);
         if (inspecting) setInspectTarget(next);
         else if (next !== pickTarget) {
           pickTarget = next;
@@ -548,7 +553,7 @@ export function createRendered(
         setInspectTarget(inspectableAt(under, host));
         return;
       }
-      const next = containerAt(under, host);
+      const next = inspectableAt(under, host);
       if (next !== pickTarget) {
         pickTarget = next;
         drawHighlight();
@@ -575,7 +580,7 @@ export function createRendered(
         // While inspecting, a click does nothing else (0018 §6).
         if (inspecting || type !== 'click') return;
         const me = e as MouseEvent;
-        const target = containerAt(underPointer(me.clientX, me.clientY), host);
+        const target = inspectableAt(underPointer(me.clientX, me.clientY), host);
         api.cancelPick();
         if (target) {
           api.setShown(target, true);
@@ -606,6 +611,12 @@ export function createRendered(
       }
     },
     scanned: () => hasScanned,
+    setBlocks(on) {
+      if (on === blocks) return;
+      blocks = on;
+      if (watching) scan();
+      else if (!on) list = list.filter((i) => i.kind !== 'block');
+    },
     items: () => list,
     isShown: (target) => shown.has(target),
     setShown(target, on) {

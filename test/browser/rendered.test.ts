@@ -439,3 +439,162 @@ describe('16. container tree (0016)', () => {
     expect(eyeFor('div.inner').getAttribute('aria-pressed')).toBe('true');
   });
 });
+
+// Spec 11 browser tests: Show blocks in the Rendered list (0022).
+describe('14. show blocks', () => {
+  const BLOCKS = `
+    <section class="wrap" style="padding:24px">
+      <div class="head" style="padding:8px 16px"><h2 style="margin:0">Heading</h2><p style="margin:0">Text</p></div>
+      <div class="cells" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px">
+        <div style="height:20px">a</div><div>b</div><div>c</div>
+      </div>
+      <div class="row" style="display:flex; gap:8px">
+        <div class="box" style="padding:4px"><span>x</span></div><div>y</div>
+      </div>
+    </section>
+  `;
+  // Only the spec 11 fixture on the page, so depths are predictable.
+  beforeEach(() => {
+    fixture.style.display = 'contents';
+    fixture.innerHTML = BLOCKS;
+  });
+  const depths = () => qa('.rrow').map((r) => `${r.getAttribute('aria-label')}:${r.dataset.depth}`);
+  const toggle = (key: string) => q(`[data-key="${key}"]`);
+  const showBlocks = async () => {
+    await userEvent.click(toggle('show-blocks'));
+    await frames();
+  };
+
+  it('is off by default, and the list is as before', async () => {
+    await open();
+    expect(toggle('show-blocks').getAttribute('aria-pressed')).toBe('false');
+    expect(depths()).toEqual(['div.cells:0']);
+    expect(q('[data-key="rendered-toggle"] .count').textContent).toBe('1 grid, 1 flex');
+  });
+
+  it('lists blocks as tree parents, with the block icon, no gap audit, and a count', async () => {
+    await open();
+    await showBlocks();
+    expect(depths()).toEqual([
+      'section.wrap:0',
+      'div.head:1',
+      'div.cells:1',
+      'div.box:1', // div.row is a hidden flex container: its child moves up
+    ]);
+    const head = qa('.rrow')[1] as HTMLElement;
+    expect(head.querySelector('.rlabel small')).toBeNull();
+    expect(head.querySelector('.ticon svg rect:nth-child(2)')).not.toBeNull();
+    expect(q('[data-key="rendered-toggle"] .count').textContent).toBe('1 grid, 1 flex, 3 blocks');
+  });
+
+  it('with Show flex on too, flex containers sit between', async () => {
+    await open();
+    await showBlocks();
+    await userEvent.click(toggle('show-flex'));
+    await frames();
+    expect(depths()).toEqual([
+      'section.wrap:0',
+      'div.head:1',
+      'div.cells:1',
+      'div.row:1',
+      'div.box:2',
+    ]);
+  });
+
+  it('a block eye draws its box and padding; turning Show blocks off keeps it drawn', async () => {
+    await open();
+    await showBlocks();
+    await showRow('div.head');
+    expect(qa('.rmarks .rtag .rname').map((t) => t.textContent)).toEqual(['div.head']);
+    expect(qa('.rmarks .rbox')).toHaveLength(1);
+    expect(qa('.rmarks .rval.pad').map((v) => v.textContent)).toEqual(['8', '16', '8', '16']);
+    expect(qa('.rmarks .rtrack')).toHaveLength(0);
+    expect(qa('.rmarks .rgap')).toHaveLength(0);
+    await showBlocks(); // off
+    expect(rowLabels()).not.toContain('div.head');
+    expect(qa('.rmarks .rtag .rname').map((t) => t.textContent)).toEqual(['div.head']);
+    await showBlocks(); // on again
+    expect(eyeFor('div.head').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('scans again when the page changes', async () => {
+    await open();
+    await showBlocks();
+    const extra = document.createElement('div');
+    extra.className = 'extra';
+    extra.style.padding = '10px';
+    extra.innerHTML = '<p style="margin:0">new</p>';
+    fixture.querySelector('.wrap')?.append(extra);
+    await frames(4);
+    expect(rowLabels()).toContain('div.extra');
+  });
+
+  it('shows Show blocks with no containers, and says when there are no blocks either', async () => {
+    fixture.innerHTML = '<div class="solo" style="padding:8px"><p>text</p></div>';
+    await open();
+    expect(q('.rsec .empty').textContent).toBe('No grid or flex containers on this page.');
+    await showBlocks();
+    expect(rowLabels()).toContain('div.solo');
+    fixture.innerHTML = '<p>just text</p>';
+    await frames(4);
+    expect(q('.rsec .empty').textContent).toBe('No grid, flex or block elements on this page.');
+  });
+
+  it('Pick on a block turns on Show blocks and focuses its eye', async () => {
+    await open();
+    await userEvent.click(q('[data-key="pick"]'));
+    const r = (fixture.querySelector('.wrap') as Element).getBoundingClientRect();
+    q('.pick').dispatchEvent(
+      new MouseEvent('click', {
+        clientX: r.left + 5,
+        clientY: r.top + 5,
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+      }),
+    );
+    await frames();
+    expect(toggle('show-blocks').getAttribute('aria-pressed')).toBe('true');
+    expect(eyeFor('section.wrap').getAttribute('aria-pressed')).toBe('true');
+    expect(shadow().activeElement).toBe(eyeFor('section.wrap'));
+  });
+
+  it('Compare skips a shown block', async () => {
+    await open();
+    await userEvent.click(q('[data-key="compare-show"]'));
+    await showBlocks();
+    await showRow('div.head');
+    await frames();
+    expect(q('[data-key="compare-status"]').textContent).toBe(
+      'Nothing to compare in the drawn elements',
+    );
+  });
+
+  it('has no axe violations with blocks listed', async () => {
+    await open();
+    await showBlocks();
+    const result = await axe.run(host(), { resultTypes: ['violations'] });
+    expect(result.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+  });
+});
+
+describe('15. speed with blocks', () => {
+  it('scans 2,000 elements with blocks in under 16 ms (median of 5)', () => {
+    const big = document.createElement('div');
+    let html = '';
+    for (let i = 0; i < 400; i++) {
+      html += `<section style="display:${i % 4 ? 'block' : 'flex'}"><div>a</div><div>b</div><span>c</span><em>d</em></section>`;
+    }
+    big.innerHTML = html;
+    fixture.append(big);
+    const runs: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const t = performance.now();
+      scanContainers(document, document.createElement('div'), { blocks: true });
+      runs.push(performance.now() - t);
+    }
+    runs.sort((a, b) => a - b);
+    expect(document.querySelectorAll('*').length).toBeGreaterThanOrEqual(2000);
+    expect(runs[2]).toBeLessThan(16);
+  });
+});

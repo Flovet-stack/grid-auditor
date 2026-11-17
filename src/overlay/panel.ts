@@ -206,12 +206,14 @@ kbd { font: 400 11px var(--ga-font); color: var(--ga-muted); border: 1px solid v
 .rrow .rlabel small { margin-left: 6px; color: var(--ga-muted); font: inherit; }
 .panel .pickbtn[aria-pressed="true"] { background: var(--ga-active); color: var(--ga-text); }
 .flex-toggle { margin: 4px 16px; }
+.rfilters { display: flex; gap: 8px; margin: 4px 16px; }
+.rfilters .flex-toggle { margin: 0; }
 .csec { margin-top: 8px; border-top: 1px solid var(--ga-border); padding-top: 4px; }
 .crow { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 16px; }
-.crow .text-btn { color: var(--ga-muted); }
+.crow .text-btn { color: var(--ga-muted); white-space: nowrap; flex: 0 0 auto; }
 .panel .crow .text-btn[aria-pressed="true"] { background: var(--ga-active); color: var(--ga-text); }
-.crow .ctol { margin-left: auto; color: var(--ga-muted); }
-.crow .unit { width: 64px; flex: 0 0 64px; }
+.crow .ctol { margin-left: auto; color: var(--ga-muted); white-space: nowrap; }
+.crow .unit { width: 56px; flex: 0 0 56px; }
 .cstatus { margin: 0 16px 4px; color: var(--ga-muted); }
 .panel .flex-toggle[aria-pressed="true"] { background: var(--ga-active); color: var(--ga-text); }
 `;
@@ -233,6 +235,9 @@ const ICONS = {
   ROWS: '<rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/><path d="M3.5 6.5h9M3.5 9.5h9"/>',
   GRID: '<rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/><path d="M6.5 3.5v9M9.5 3.5v9M3.5 6.5h9M3.5 9.5h9"/>',
   flex: '<rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/><path d="M5.5 6v4M8 6v4M10.5 6v4"/>',
+  /** A box with a smaller box inside: an element and its padding (0022). */
+  block:
+    '<rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/><rect x="6" y="6" width="4" height="4" rx="0.25"/>',
   target: '<circle cx="8" cy="8" r="3.5"/><path d="M8 2v2.5M8 11.5V14M2 8h2.5M11.5 8H14"/>',
   grip: [5, 8, 11]
     .flatMap((y) => [6, 10].map((x) => `<circle class="dot" cx="${x}" cy="${y}" r="1"/>`))
@@ -1233,11 +1238,20 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
   const rsec = el('section', { class: 'rsec', 'aria-labelledby': 'ga-rendered' });
   let rOpen = false;
   let showFlex = false;
+  /** Show blocks (0022): not saved, off on each load, like Show flex. */
+  let showBlocks = false;
+  const setShowBlocks = (on: boolean): void => {
+    showBlocks = on;
+    store.rendered().setBlocks(on);
+  };
   const watch = (): void => store.rendered().setWatching(rOpen && !root.hidden);
   const countText = (items: readonly RenderedItem[]): string => {
     const grids = items.filter((i) => i.kind === 'grid').length;
-    const flex = items.length - grids;
-    return `${grids} ${grids === 1 ? 'grid' : 'grids'}, ${flex} flex`;
+    const flex = items.filter((i) => i.kind === 'flex').length;
+    const text = `${grids} ${grids === 1 ? 'grid' : 'grids'}, ${flex} flex`;
+    if (!showBlocks) return text;
+    const blocks = items.filter((i) => i.kind === 'block').length;
+    return `${text}, ${blocks} ${blocks === 1 ? 'block' : 'blocks'}`;
   };
   /** Parents whose children are hidden in the tree (0016). */
   const collapsed = new WeakSet<Element>();
@@ -1248,14 +1262,15 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
   }
   /**
    * The container tree (0016), in document order: each listed container sits under the
-   * nearest listed container that contains it. Flex containers are listed only with Show flex.
+   * nearest listed element that contains it. Flex containers are listed only with Show flex,
+   * and blocks only with Show blocks (0022).
    * Children of a collapsed parent are left out.
    */
   const treeRows = (): TreeRow[] => {
     const items = store
       .rendered()
       .items()
-      .filter((i) => showFlex || i.kind === 'grid');
+      .filter((i) => (i.kind !== 'flex' || showFlex) && (i.kind !== 'block' || showBlocks));
     const rows: TreeRow[] = [];
     const stack: RenderedItem[] = [];
     let hiddenUnder: Element | undefined;
@@ -1307,10 +1322,15 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
       twisty.append(btn);
     }
     const ticon = el('span', { class: 'ticon' });
-    ticon.innerHTML = icon(item.kind === 'grid' ? 'GRID' : 'flex');
+    ticon.innerHTML = icon(item.kind === 'grid' ? 'GRID' : item.kind);
     const audit = item.audit();
-    const label = el('span', { class: 'rlabel', title: `${item.label} · ${audit}` }, item.label);
-    label.append(el('small', {}, audit));
+    const label = el(
+      'span',
+      { class: 'rlabel', title: audit ? `${item.label} · ${audit}` : item.label },
+      item.label,
+    );
+    // Blocks have no gaps, so no gap audit (0022 §3).
+    if (audit) label.append(el('small', {}, audit));
     const on = r.isShown(item.el);
     const eye = el('button', {
       type: 'button',
@@ -1376,35 +1396,46 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
       const items = r.items();
       const flexCount = items.filter((i) => i.kind === 'flex').length;
       if (items.length === 0) {
-        parts.push(el('p', { class: 'empty' }, 'No grid or flex containers on this page.'));
+        const text = showBlocks
+          ? 'No grid, flex or block elements on this page.'
+          : 'No grid or flex containers on this page.';
+        parts.push(el('p', { class: 'empty' }, text));
       } else {
         const list = el('div', { class: 'list', role: 'group', 'aria-labelledby': 'ga-rendered' });
         treeRows().forEach((tr, j) => {
           list.append(renderRenderedRow(tr, j));
         });
         parts.push(list);
-        if (flexCount) {
-          const flexBtn = el(
-            'button',
-            {
-              type: 'button',
-              class: 'text-btn flex-toggle',
-              'aria-pressed': String(showFlex),
-              'data-key': 'show-flex',
-            },
-            'Show flex',
-          );
-          flexBtn.addEventListener(
-            'click',
-            () => {
-              showFlex = !showFlex;
-              renderRendered();
-            },
-            { signal },
-          );
-          parts.push(flexBtn);
-        }
       }
+      const filter = (key: string, text: string, on: boolean, toggle: () => void) => {
+        const btn = el(
+          'button',
+          {
+            type: 'button',
+            class: 'text-btn flex-toggle',
+            'aria-pressed': String(on),
+            'data-key': key,
+          },
+          text,
+        );
+        btn.addEventListener(
+          'click',
+          () => {
+            toggle();
+            renderRendered();
+          },
+          { signal },
+        );
+        return btn;
+      };
+      const filters = el('div', { class: 'rfilters' });
+      if (flexCount)
+        filters.append(filter('show-flex', 'Show flex', showFlex, () => (showFlex = !showFlex)));
+      // Shown even with no containers: blocks aren't known until they're scanned (0022).
+      filters.append(
+        filter('show-blocks', 'Show blocks', showBlocks, () => setShowBlocks(!showBlocks)),
+      );
+      parts.push(filters);
     }
     rsec.replaceChildren(...parts);
     if (focusedKey)
@@ -1610,11 +1641,19 @@ export function createPanel(doc: Document, store: PanelStore, signal: AbortSigna
     picked(target) {
       rOpen = true;
       watch();
-      const item = store
-        .rendered()
-        .items()
-        .find((i) => i.el === target);
+      const find = () =>
+        store
+          .rendered()
+          .items()
+          .find((i) => i.el === target);
+      let item = find();
+      // Pick can choose a block (0022): list blocks so its row exists.
+      if (!item) {
+        setShowBlocks(true);
+        item = find();
+      }
       if (item?.kind === 'flex') showFlex = true;
+      if (item?.kind === 'block' && !showBlocks) setShowBlocks(true);
       // Open the branch that holds the picked container (0016).
       for (const i of store.rendered().items()) {
         if (i.el !== target && i.el.contains(target)) collapsed.delete(i.el);

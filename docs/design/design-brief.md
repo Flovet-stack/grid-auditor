@@ -175,7 +175,7 @@ It matches Figma's Layout guide panel. See the screenshots in [references/figma-
 
 - **Header:** a disclosure button, `Rendered`, with a muted count once the page has been scanned (`3 grids, 12 flex`), and a Pick button (crosshair icon).
 - **Collapsed by default.** The page is only scanned while the section is open.
-- **Rows:** a tree of containers (0016), like Figma's layers panel: indented 16 px per level under the nearest listed container that holds it, with a chevron on parents. Each 32 px row has a type icon, the label (`div.cards`) with the gap audit in muted text, and an eye. A **Show flex** button adds the flex containers.
+- **Rows:** a tree of containers (0016), like Figma's layers panel: indented 16 px per level under the nearest listed container that holds it, with a chevron on parents. Each 32 px row has a type icon, the label (`div.cards`) with the gap audit in muted text, and an eye. **Show flex** and **Show blocks** text toggles under the list add the flex containers and the other elements with children (0022). Block rows get a box-in-a-box icon and no gap audit, and the header count adds them (`3 grids, 12 flex, 40 blocks`). Pick follows the inspector's rule, and picking a block turns on Show blocks.
 - **Hover or focus a row:** a solid outline and name tag around that element on the page.
 - **Marks:** dashed blue-violet (`#6e56cf`) track outlines and content box, and a name tag at the top-left on the panel's dark grey, with the container's size dimmed beside the name (0017). Gaps are shaded pink (`#e90c7a`, the primary blue's hue mirrored) and padding primary blue (`#0c8ce9`), both with an even 6 px diagonal tile and a value box in the same colour with white text (0016). Track sizes appear only on hover, as a value pill.
 

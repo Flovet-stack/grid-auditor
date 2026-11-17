@@ -436,14 +436,14 @@ describe('11. elements with children', () => {
     expect(pill().hidden).toBe(false);
   });
 
-  it('Pick still picks containers only', async () => {
+  it('Pick follows the same rule: a block from its padding, a grid from its cells (0022)', async () => {
     overlay = createGridOverlay();
     overlay.openPanel();
     await userEvent.click(q('[data-key="pick"]'));
     const r = b('.wrap').getBoundingClientRect();
     pointer('pointermove', { clientX: r.left + 5, clientY: r.top + 5 });
     await frames();
-    expect(qa('.rhl .rout')).toHaveLength(0);
+    expect(qa('.rhl .rtag .rname').map((t) => t.textContent)).toEqual(['section.wrap']);
     pointer('pointermove', at(b('.cells .t')));
     await frames();
     expect(qa('.rhl .rtag .rname').map((t) => t.textContent)).toEqual(['div.cells']);
