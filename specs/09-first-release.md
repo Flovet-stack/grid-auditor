@@ -1,6 +1,6 @@
 # 09: First release 0.1.0
 
-Status: In progress
+Status: In progress (approved by Flovet, 2026-11-25)
 
 Brief: Packaging #22 (vanilla JS core) and #25 (nothing shipped in production). Flovet asked on 2026-11-25 to publish what is built so far, to test it in another product.
 
