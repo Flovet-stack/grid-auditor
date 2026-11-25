@@ -1,6 +1,6 @@
 {
   "name": "grid-auditor",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Dev-only web overlay that compares the expected design layout grid (columns, rows, squares as in Figma) with the grid your page actually rendered. Not affiliated with Figma.",
   "license": "MIT",
   "author": "Flovet Asong",
@@ -14,7 +14,8 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=20"
@@ -33,7 +34,7 @@
     "format:check": "biome format .",
     "lint": "biome lint .",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && pnpm --filter playground typecheck",
-    "test": "vitest run --coverage",
+    "test": "vitest run --coverage --project unit && vitest run --project browser",
     "build": "tsdown",
     "test:prod-exclusion": "pnpm build && node scripts/check-prod-exclusion.mjs",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && node scripts/check-prod-exclusion.mjs"
