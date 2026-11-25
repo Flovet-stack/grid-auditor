@@ -4,7 +4,7 @@ A dev-only browser overlay that shows the **expected** Figma layout grid next to
 
 Works with layout grids from Figma. Not affiliated with or endorsed by Figma.
 
-> **Status: pre-release.** Nothing usable yet. The plan is in [`PROJECT_BRIEF.md`](PROJECT_BRIEF.md) and [`specs/`](specs/).
+> **Status: 0.1.0 preview.** Expected grids, breakpoints, the control panel, the rendered grid, the inspector and Compare work. Rulers, guides, the toolbar and React/Svelte/Vue entries are not built yet. The plan is in [`PROJECT_BRIEF.md`](PROJECT_BRIEF.md) and [`specs/`](specs/).
 
 ## Usage
 

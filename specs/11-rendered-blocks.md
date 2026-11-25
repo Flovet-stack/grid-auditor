@@ -1,6 +1,6 @@
 # 11: Show blocks in the Rendered list
 
-Status: In progress
+Status: Done (https://github.com/Flovet-stack/grid-auditor/pull/15)
 
 Brief: must-have #3 (rendered grid overlay, "for a chosen container"), together with #17 (geometry inspection). It builds on specs 07 and 10.
 
